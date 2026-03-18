@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Site Command – Construction Operations Dashboard</title>
+  <meta name="description" content="The all-in-one daily operations platform for construction site foremen and project managers. Daily reports, photo logs, change orders, crew scheduling, and more." />
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <img src="logo.png" alt="Site Command" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+      <div style="display:none;width:40px;height:40px;background:var(--brand-dim);border-radius:10px;align-items:center;justify-content:center;font-size:1.3rem;border:1px solid var(--brand-border);">🏗️</div>
+      <div class="logo-text">
+        <span class="logo-name">Site Command</span>
+        <span class="logo-tag">Pro</span>
+      </div>
+    </div>
+
+    <div class="sidebar-project">
+      <div class="sidebar-project-label">Active Project</div>
+      <div class="sidebar-project-name">Harbour Reach Condos – Phase 2</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <div class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+        <span class="nav-icon">📊</span> Dashboard
+      </div>
+      <div class="nav-item" data-page="daily-report" onclick="navigate('daily-report')">
+        <span class="nav-icon">📋</span> Daily Reports
+        <span class="nav-badge">5</span>
+      </div>
+      <div class="nav-item" data-page="schedule" onclick="navigate('schedule')">
+        <span class="nav-icon">📅</span> Schedule
+      </div>
+
+      <div class="nav-section-label">Field</div>
+      <div class="nav-item" data-page="photos" onclick="navigate('photos')">
+        <span class="nav-icon">📸</span> Photo Log
+      </div>
+      <div class="nav-item" data-page="crew" onclick="navigate('crew')">
+        <span class="nav-icon">👷</span> Crew &amp; Subs
+      </div>
+      <div class="nav-item" data-page="timecards" onclick="navigate('timecards')">
+        <span class="nav-icon">⏱️</span> Timecards
+      </div>
+      <div class="nav-item" data-page="safety" onclick="navigate('safety')">
+        <span class="nav-icon">⚠️</span> Safety Log
+        <span class="nav-badge" style="background:var(--red);">1</span>
+      </div>
+
+      <div class="nav-section-label">Admin</div>
+      <div class="nav-item" data-page="rfis" onclick="navigate('rfis')">
+        <span class="nav-icon">📨</span> RFIs
+        <span class="nav-badge" style="background:var(--blue);">2</span>
+      </div>
+      <div class="nav-item" data-page="punchlist" onclick="navigate('punchlist')">
+        <span class="nav-icon">✅</span> Punch List
+      </div>
+      <div class="nav-item" data-page="change-orders" onclick="navigate('change-orders')">
+        <span class="nav-icon">📝</span> Change Orders
+        <span class="nav-badge">2</span>
+      </div>
+      <div class="nav-item" data-page="budget" onclick="navigate('budget')">
+        <span class="nav-icon">💰</span> Budget
+      </div>
+      <div class="nav-item" data-page="documents" onclick="navigate('documents')">
+        <span class="nav-icon">📁</span> Documents
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar">JS</div>
+        <div class="user-info">
+          <div class="user-name">Jake Sullivan</div>
+          <div class="user-role">Site Foreman</div>
+        </div>
+        <span style="color:var(--text-muted);font-size:0.8rem;" onclick="exportBackup();showToast('Backup exported!','success')" title="Backup Data">💾</span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <main class="main-content">
+
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <div class="topbar-title">
+        <h1 id="pageTitle">Dashboard</h1>
+        <p id="pageSubtitle">Monday, March 16, 2026 — Harbour Reach Condos</p>
+      </div>
+      <div class="topbar-actions">
+        <div class="weather-widget">
+          <span>🌤️</span>
+          <span class="weather-temp">4°C</span>
+          <span class="weather-desc">Partly cloudy, 18 km/h W</span>
+        </div>
+        <button class="topbar-btn btn-ghost" onclick="showToast('All data synced to local storage ✓','success')">🔄 Sync</button>
+        <button class="topbar-btn btn-primary" id="topbarActionBtn" onclick="handlePrimaryAction()">+ New Report</button>
+      </div>
+    </header>
+
+    <!-- ═══ PAGE: DASHBOARD ═══ -->
+    <section class="page active" id="page-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card orange">
+          <div class="stat-label">Active Projects</div>
+          <div class="stat-value orange">4</div>
+          <div class="stat-sub"><span class="stat-trend trend-up">↑ 1</span> vs last month</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Crew On-Site Today</div>
+          <div class="stat-value green">24</div>
+          <div class="stat-sub">3 trades active</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-label">Open Change Orders</div>
+          <div class="stat-value yellow">2</div>
+          <div class="stat-sub">$18,400 pending</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-label">Overall Progress</div>
+          <div class="stat-value blue">61%</div>
+          <div class="stat-sub"><span class="stat-trend trend-up">↑ On track</span></div>
+        </div>
+      </div>
+
+      <div class="grid-2 mb-24">
+        <div>
+          <div class="section-header">
+            <div class="section-title">🏗️ Active Projects</div>
+            <button class="btn btn-sm btn-outline" onclick="navigate('budget')">View Budget</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div class="project-card" onclick="navigate('budget')">
+              <div class="project-status status-active">● Active</div>
+              <div class="project-name">Harbour Reach Condos – Phase 2</div>
+              <div class="project-address">📍 142 Harbour Dr, Dartmouth NS</div>
+              <div class="project-meta">
+                <div class="project-meta-item"><span class="project-meta-label">GC</span><span class="project-meta-value">Sullivan Build Co.</span></div>
+                <div class="project-meta-item"><span class="project-meta-label">Est. Complete</span><span class="project-meta-value">Aug 2026</span></div>
+                <div class="project-meta-item"><span class="project-meta-label">Contract</span><span class="project-meta-value text-orange">$2.4M</span></div>
+              </div>
+              <div class="progress-bar-wrap"><div class="progress-bar" style="width:61%"></div></div>
+              <div class="progress-label"><span>Progress</span><span class="text-orange fw-bold">61%</span></div>
+            </div>
+            <div class="project-card">
+              <div class="project-status status-delayed">⚠ Delayed</div>
+              <div class="project-name">Grafton Street Commercial Reno</div>
+              <div class="project-address">📍 5481 Grafton St, Halifax NS</div>
+              <div class="project-meta">
+                <div class="project-meta-item"><span class="project-meta-label">Est. Complete</span><span class="project-meta-value text-red">Apr 2026 — Late</span></div>
+                <div class="project-meta-item"><span class="project-meta-label">Contract</span><span class="project-meta-value text-orange">$640K</span></div>
+              </div>
+              <div class="progress-bar-wrap"><div class="progress-bar" style="width:78%;background:linear-gradient(90deg,#dc2626,#ef4444)"></div></div>
+              <div class="progress-label"><span>Progress</span><span style="color:var(--red);font-weight:700;">78% – 14 days behind</span></div>
+            </div>
+            <div class="project-card">
+              <div class="project-status status-pending">◎ Pre-Start</div>
+              <div class="project-name">Bedford Commons – Framing</div>
+              <div class="project-address">📍 Kearney Lake Rd, Bedford NS</div>
+              <div class="project-meta">
+                <div class="project-meta-item"><span class="project-meta-label">Start Date</span><span class="project-meta-value">Apr 1, 2026</span></div>
+                <div class="project-meta-item"><span class="project-meta-label">Contract</span><span class="project-meta-value text-orange">$890K</span></div>
+              </div>
+              <div class="progress-bar-wrap"><div class="progress-bar" style="width:8%;background:linear-gradient(90deg,#374151,#6b7280)"></div></div>
+              <div class="progress-label"><span>Mobilization</span><span style="color:var(--text-muted);font-weight:700;">8%</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">⚡ Today's Activity</div>
+              <span class="text-muted" style="font-size:0.75rem;">Mar 16, 2026</span>
+            </div>
+            <div class="card-body" style="padding-top:12px;padding-bottom:12px;">
+              <div class="activity-list">
+                <div class="activity-item"><div class="activity-dot dot-orange">🔖</div><div class="activity-content"><div class="activity-text">Daily report submitted by <strong>M. Tremblay</strong></div><div class="activity-meta">Harbour Reach — 7:42 AM</div></div></div>
+                <div class="activity-item"><div class="activity-dot dot-red">⚠️</div><div class="activity-content"><div class="activity-text">Change order <strong>#CO-008</strong> needs approval — $12,400</div><div class="activity-meta">Electrical rough-in addition — 9:15 AM</div></div></div>
+                <div class="activity-item"><div class="activity-dot dot-green">📸</div><div class="activity-content"><div class="activity-text"><strong>14 photos</strong> uploaded to Harbour Reach</div><div class="activity-meta">Floor 6 framing — 10:02 AM</div></div></div>
+                <div class="activity-item"><div class="activity-dot dot-yellow">👷</div><div class="activity-content"><div class="activity-text">Plumbing crew (4) signed in on-site</div><div class="activity-meta">Harbour Reach — 10:30 AM</div></div></div>
+                <div class="activity-item"><div class="activity-dot dot-blue">📦</div><div class="activity-content"><div class="activity-text">Delivery received — <strong>Lumber Package #3</strong></div><div class="activity-meta">Grafton St. — 11:14 AM</div></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">🚀 Quick Actions</div></div>
+            <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:14px;">
+              <button class="btn btn-outline w-full" style="justify-content:center;" onclick="navigate('daily-report');openNewReport()">📋 New Report</button>
+              <button class="btn btn-outline w-full" style="justify-content:center;" onclick="navigate('change-orders');openNewCO()">📝 Change Order</button>
+              <button class="btn btn-outline w-full" style="justify-content:center;" onclick="navigate('photos')">📸 Add Photos</button>
+              <button class="btn btn-outline w-full" style="justify-content:center;" onclick="navigate('rfis');openNewRFI()">📨 New RFI</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ PAGE: DAILY REPORTS ═══ -->
+    <section class="page" id="page-daily-report">
+      <div class="section-header mb-24">
+        <div class="section-title">📋 Daily Site Reports</div>
+        <button class="btn btn-orange" onclick="openNewReport()">+ New Report</button>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📅 All Reports</div>
+          <select style="width:auto;padding:6px 10px;font-size:0.78rem;"><option>All Projects</option><option>Harbour Reach P2</option><option>Grafton St Reno</option></select>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Project</th><th>Foreman</th><th>Crew</th><th>Weather</th><th>Work Summary</th><th>Issues</th><th>Status</th><th></th></tr></thead>
+            <tbody id="reportsTableBody"><tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted);">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ PAGE: SCHEDULE (GANTT) ═══ -->
+    <section class="page" id="page-schedule">
+      <div class="section-header mb-24">
+        <div class="section-title">📅 Project Schedule — Gantt View</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span class="text-muted" style="font-size:0.78rem;">Harbour Reach Condos – Phase 2</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🗓️ Timeline — Jan 2026 to Aug 2026</div>
+          <div style="display:flex;gap:6px;">
+            <span class="badge badge-green">● Complete</span>
+            <span class="badge badge-orange">● In Progress</span>
+            <span class="badge badge-gray">● Upcoming</span>
+          </div>
+        </div>
+        <div class="card-body" style="overflow-x:auto;padding:16px;">
+          <div id="ganttChart" style="position:relative;min-width:800px;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ PAGE: PHOTOS ═══ -->
+    <section class="page" id="page-photos">
+      <div class="section-header mb-24">
+        <div class="section-title">📸 Photo Log</div>
+        <div style="display:flex;gap:10px;">
+          <select style="width:auto;padding:8px 12px;font-size:0.82rem;"><option>All Projects</option><option>Harbour Reach P2</option><option>Grafton St Reno</option></select>
+          <button class="btn btn-orange" onclick="document.getElementById('photoUpload').click()">📤 Upload</button>
+          <input type="file" id="photoUpload" accept="image/*" multiple style="display:none;" onchange="handlePhotoUpload(event)" />
+        </div>
+      </div>
+      <div class="mb-24">
+        <div class="upload-zone" id="uploadZone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDrop(event)" onclick="document.getElementById('photoUpload').click()">
+          <div class="upload-icon">📷</div>
+          <div>Drag &amp; drop photos here, or <strong style="color:var(--brand);">click to upload</strong></div>
+          <div class="upload-hint">JPG, PNG, HEIC · Saved to local database</div>
+        </div>
+      </div>
+      <div class="section-header" style="margin-bottom:12px;">
+        <div class="section-title" style="font-size:0.88rem;color:var(--text-secondary);">📅 March 16 — Floor 6 Framing</div>
+        <span class="badge badge-orange">14 photos</span>
+      </div>
+      <div class="photo-grid mb-24" id="photoGrid"></div>
+      <div class="section-header" style="margin-bottom:12px;">
+        <div class="section-title" style="font-size:0.88rem;color:var(--text-secondary);">📅 March 15 — Plumbing Rough-In</div>
+        <span class="badge badge-gray">8 photos</span>
+      </div>
+      <div class="photo-grid" id="photoGrid2"></div>
+    </section>
+
+    <!-- ═══ PAGE: CREW & SUBS ═══ -->
+    <section class="page" id="page-crew">
+      <div class="section-header mb-24">
+        <div class="section-title">👷 Crew &amp; Sub Schedule</div>
+        <button class="btn btn-orange" onclick="openNewSub()">+ Add Trade</button>
+      </div>
+      <div class="card mb-24">
+        <div class="card-header">
+          <div class="card-title">✅ On-Site Today — March 16</div>
+          <span class="badge badge-green">24 workers</span>
+        </div>
+        <div class="card-body" style="padding:0 0 4px;">
+          <div style="padding:0 22px;">
+            <div class="crew-row"><div class="crew-avatar">JS</div><div class="crew-info"><div class="crew-name">Jake Sullivan</div><div class="crew-trade">Site Foreman</div></div><span class="badge badge-orange">On-Site</span><span class="crew-hours">10h</span></div>
+            <div class="crew-row"><div class="crew-avatar">MT</div><div class="crew-info"><div class="crew-name">Marc Tremblay</div><div class="crew-trade">Carpenter Lead</div></div><span class="badge badge-orange">On-Site</span><span class="crew-hours">10h</span></div>
+            <div class="crew-row"><div class="crew-avatar">RO</div><div class="crew-info"><div class="crew-name">Raymond Okonkwo</div><div class="crew-trade">Electrician</div></div><span class="badge badge-orange">On-Site</span><span class="crew-hours">8h</span></div>
+            <div class="crew-row"><div class="crew-avatar">LP</div><div class="crew-info"><div class="crew-name">Luis Pereira</div><div class="crew-trade">Plumber Lead</div></div><span class="badge badge-orange">On-Site</span><span class="crew-hours">8h</span></div>
+            <div class="crew-row"><div class="crew-avatar">DK</div><div class="crew-info"><div class="crew-name">Dave Kim + 4</div><div class="crew-trade">Framing Crew</div></div><span class="badge badge-green">Confirmed</span><span class="crew-hours">10h</span></div>
+            <div class="crew-row"><div class="crew-avatar">AB</div><div class="crew-info"><div class="crew-name">Amir Bolouri + 3</div><div class="crew-trade">Plumbing Crew</div></div><span class="badge badge-green">Confirmed</span><span class="crew-hours">8h</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📅 Trade Schedule — Week of Mar 16</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-sm btn-outline" onclick="showToast('← Previous week','info')">← Prev</button>
+            <button class="btn btn-sm btn-outline" onclick="showToast('Next week →','info')">Next →</button>
+          </div>
+        </div>
+        <div class="card-body" style="overflow-x:auto;padding-top:16px;">
+          <div class="schedule-header">
+            <div class="schedule-col-head" style="text-align:left;">Trade</div>
+            <div class="schedule-col-head today">MON<br><span style="font-size:0.8em;font-weight:400;">16</span></div>
+            <div class="schedule-col-head">TUE<br><span style="font-size:0.8em;font-weight:400;">17</span></div>
+            <div class="schedule-col-head">WED<br><span style="font-size:0.8em;font-weight:400;">18</span></div>
+            <div class="schedule-col-head">THU<br><span style="font-size:0.8em;font-weight:400;">19</span></div>
+            <div class="schedule-col-head">FRI<br><span style="font-size:0.8em;font-weight:400;">20</span></div>
+            <div class="schedule-col-head" style="color:var(--text-muted);">SAT<br><span style="font-size:0.8em;font-weight:400;">21</span></div>
+            <div class="schedule-col-head" style="color:var(--text-muted);">SUN<br><span style="font-size:0.8em;font-weight:400;">22</span></div>
+          </div>
+          <div id="scheduleRows"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ PAGE: TIMECARDS ═══ -->
+    <section class="page" id="page-timecards">
+      <div class="section-header mb-24">
+        <div class="section-title">⏱️ Timecards</div>
+        <button class="btn btn-orange" onclick="openNewTimecard()">+ Clock In</button>
+      </div>
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card orange"><div class="stat-label">Total Hours Today</div><div class="stat-value orange" id="tcTodayHours">54</div><div class="stat-sub">6 workers clocked in</div></div>
+        <div class="stat-card green"><div class="stat-label">Regular Hours</div><div class="stat-value green" id="tcRegHours">48</div><div class="stat-sub">Standard time</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Overtime Hours</div><div class="stat-value yellow" id="tcOTHours">6</div><div class="stat-sub">1.5x rate applies</div></div>
+        <div class="stat-card blue"><div class="stat-label">Weekly Total</div><div class="stat-value blue" id="tcWeekHours">54</div><div class="stat-sub">Mon–Sun</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">👷 Today's Timesheets — Mar 16</div></div>
+          <div class="card-body" style="padding:0 22px 8px;">
+            <div id="timecardsList">Loading…</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">💰 Cost Code Breakdown</div></div>
+          <div class="card-body" style="padding:0 22px 8px;">
+            <div id="costCodeBreakdown">Loading…</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ PAGE: SAFETY ═══ -->
+    <section class="page" id="page-safety">
+      <div class="section-header mb-24">
+        <div class="section-title">⚠️ Safety Log</div>
+        <button class="btn btn-orange" onclick="openNewSafety()">+ Log Entry</button>
+      </div>
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card green"><div class="stat-label">Days Without Incident</div><div class="stat-value green" id="daysWithoutIncident">47</div><div class="stat-sub">This project</div></div>
+        <div class="stat-card orange"><div class="stat-label">Toolbox Talks (MTD)</div><div class="stat-value orange">12</div><div class="stat-sub">March 2026</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Near Misses (YTD)</div><div class="stat-value yellow">3</div><div class="stat-sub">All projects</div></div>
+        <div class="stat-card blue"><div class="stat-label">Compliance Checks</div><div class="stat-value blue">98%</div><div class="stat-sub">PPE / Site rules</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><div class="card-header"><div class="card-title">🔴 Open Items</div><span id="safetyOpenBadge" class="badge badge-red">1 Open</span></div><div class="card-body" style="padding:0 22px 16px;"><div id="safetyOpenList">Loading…</div></div></div>
+        <div class="card"><div class="card-header"><div class="card-title">📋 Toolbox Talks</div><button class="btn btn-sm btn-outline" onclick="openNewSafety()">+ Add</button></div><div class="card-body" style="padding:0 22px 16px;"><div id="safetyTalksList">Loading…</div></div></div>
+      </div>
+    </section>
+
+    <!-- ═══ PAGE: RFIs ═══ -->
+    <section class="page" id="page-rfis">
+      <div class="section-header mb-24">
+        <div class="section-title">📨 Requests for Information</div>
+        <button class="btn btn-orange" onclick="openNewRFI()">+ New RFI</button>
+      </div>
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card orange"><div class="stat-label">Open RFIs</div><div class="stat-value orange" id="rfiOpenCount">2</div><div class="stat-sub">Awaiting response</div></div>
+        <div class="stat-card green"><div class="stat-label">Answered</div><div class="stat-value green" id="rfiAnsweredCount">1</div><div class="stat-sub">Response received</div></div>
+        <div class="stat-card blue"><div class="stat-label">Total (YTD)</div><div class="stat-value blue" id="rfiTotalCount">4</div><div class="stat-sub">All projects</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Avg Response</div><div class="stat-value yellow">2.3d</div><div class="stat-sub">Business days</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">📋 All RFIs</div></div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead><tr><th>RFI #</th><th>Subject</th><th>Assigned To</th><th>Priority</th><th>Status</th><th>Due</th><th></th></tr></thead>
+            <tbody id="rfisTableBody"><tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ PAGE: PUNCH LIST ═══ -->
+    <section class="page" id="page-punchlist">
+      <div class="section-header mb-24">
+        <div class="section-title">✅ Punch List</div>
+        <button class="btn btn-orange" onclick="openNewPunch()">+ Add Item</button>
+      </div>
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card orange"><div class="stat-label">Open Items</div><div class="stat-value orange" id="plOpenCount">5</div><div class="stat-sub">Needs attention</div></div>
+        <div class="stat-card green"><div class="stat-label">Completed</div><div class="stat-value green" id="plCompleteCount">2</div><div class="stat-sub">Verified done</div></div>
+        <div class="stat-card blue"><div class="stat-label">Total Items</div><div class="stat-value blue" id="plTotalCount">7</div><div class="stat-sub">This project</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Completion Rate</div><div class="stat-value yellow" id="plRate">29%</div><div class="stat-sub">Target: 100%</div></div>
+      </div>
+      <div id="punchListItems">Loading…</div>
+    </section>
+
+    <!-- ═══ PAGE: CHANGE ORDERS ═══ -->
+    <section class="page" id="page-change-orders">
+      <div class="section-header mb-24">
+        <div class="section-title">📝 Change Orders</div>
+        <button class="btn btn-orange" onclick="openNewCO()">+ New Change Order</button>
+      </div>
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card orange"><div class="stat-label">Pending Approval</div><div class="stat-value orange" id="coPendingCount">2</div><div class="stat-sub" id="coPendingVal">$18,400 outstanding</div></div>
+        <div class="stat-card green"><div class="stat-label">Approved (MTD)</div><div class="stat-value green" id="coApprovedCount">2</div><div class="stat-sub">+$23,000 added to contract</div></div>
+        <div class="stat-card blue"><div class="stat-label">Total COs (YTD)</div><div class="stat-value blue" id="coTotalCount">4</div><div class="stat-sub">All projects</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Rejected</div><div class="stat-value yellow">0</div><div class="stat-sub">None declined</div></div>
+      </div>
+      <div class="grid-2">
+        <div><div class="section-header" style="margin-bottom:14px;"><div class="section-title" style="font-size:0.9rem;"><span class="badge badge-yellow">Pending</span></div></div><div id="coPendingList">Loading…</div></div>
+        <div><div class="section-header" style="margin-bottom:14px;"><div class="section-title" style="font-size:0.9rem;"><span class="badge badge-green">Approved / Rejected</span></div></div><div id="coApprovedList">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- ═══ PAGE: BUDGET ═══ -->
+    <section class="page" id="page-budget">
+      <div class="section-header mb-24">
+        <div class="section-title">💰 Budget Tracker — Harbour Reach P2</div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-sm btn-outline" onclick="exportBackup();showToast('Backup exported to Downloads','success')">📤 Backup</button>
+          <button class="btn btn-orange btn-sm" onclick="showToast('Budget saved','success')">Save</button>
+        </div>
+      </div>
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card orange"><div class="stat-label">Original Contract</div><div class="stat-value orange">$2.4M</div><div class="stat-sub">Signed Jan 2026</div></div>
+        <div class="stat-card green"><div class="stat-label">Revised Contract</div><div class="stat-value green">$2.46M</div><div class="stat-sub">After COs +$61,800</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Spent to Date</div><div class="stat-value yellow">$1.49M</div><div class="stat-sub">61% of revised contract</div></div>
+        <div class="stat-card blue"><div class="stat-label">Remaining Budget</div><div class="stat-value blue">$967K</div><div class="stat-sub">Projected on-budget</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">💼 Cost Breakdown</div></div>
+          <div class="card-body" style="padding:0 22px 8px;">
+            <div class="budget-item"><div class="budget-row"><span class="budget-label">Labour</span><div class="budget-amounts"><span class="amount-spent">$612,000</span><span class="amount-total">/ $840,000</span></div></div><div class="budget-fill-bar"><div class="budget-fill fill-safe" style="width:73%"></div></div><div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">73% used — On track</div></div>
+            <div class="budget-item"><div class="budget-row"><span class="budget-label">Materials</span><div class="budget-amounts"><span class="amount-spent">$698,400</span><span class="amount-total">/ $1,020,000</span></div></div><div class="budget-fill-bar"><div class="budget-fill fill-safe" style="width:68%"></div></div><div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">68% used — On track</div></div>
+            <div class="budget-item"><div class="budget-row"><span class="budget-label">Subcontractors</span><div class="budget-amounts"><span class="amount-spent" style="color:var(--yellow)">$162,000</span><span class="amount-total">/ $390,000</span></div></div><div class="budget-fill-bar"><div class="budget-fill fill-safe" style="width:42%"></div></div><div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">42% used — Below target (subs mobilizing)</div></div>
+            <div class="budget-item"><div class="budget-row"><span class="budget-label">Equipment Rental</span><div class="budget-amounts"><span class="amount-spent" style="color:var(--red)">$124,800</span><span class="amount-total">/ $140,000</span></div></div><div class="budget-fill-bar"><div class="budget-fill fill-danger" style="width:89%"></div></div><div style="font-size:0.72rem;color:var(--red);margin-top:4px;">⚠ 89% used — Review rental rates</div></div>
+            <div class="budget-item"><div class="budget-row"><span class="budget-label">Contingency</span><div class="budget-amounts"><span class="amount-spent">$0</span><span class="amount-total">/ $70,000</span></div></div><div class="budget-fill-bar"><div class="budget-fill fill-safe" style="width:0%"></div></div><div style="font-size:0.72rem;color:var(--green);margin-top:4px;">Untouched — $70K reserve</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">📈 Monthly Spend</div></div>
+          <div class="card-body">
+            <div id="spendChart" style="display:flex;flex-direction:column;gap:8px;"></div>
+            <div class="divider" style="margin:16px 0;"></div>
+            <div style="background:var(--surface-3);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;">
+              <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.07em;">Projected at Completion</div>
+              <div style="font-size:1.6rem;font-weight:900;color:var(--green);">$2,441,200</div>
+              <div style="font-size:0.78rem;color:var(--text-secondary);margin-top:4px;">Under budget by <strong style="color:var(--green);">$18,800</strong> ✓</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ PAGE: DOCUMENTS ═══ -->
+    <section class="page" id="page-documents">
+      <div class="section-header mb-24">
+        <div class="section-title">📁 Document Vault</div>
+        <button class="btn btn-orange" onclick="showToast('Upload feature — connect to cloud storage for full support','info')">📤 Upload</button>
+      </div>
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card blue"><div class="stat-label">Total Documents</div><div class="stat-value blue" id="docTotalCount">10</div><div class="stat-sub">All categories</div></div>
+        <div class="stat-card orange"><div class="stat-label">Contracts</div><div class="stat-value orange" id="docContractCount">2</div><div class="stat-sub">Active agreements</div></div>
+        <div class="stat-card green"><div class="stat-label">Drawings</div><div class="stat-value green" id="docDrawingCount">2</div><div class="stat-sub">Latest revisions</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Permits</div><div class="stat-value yellow" id="docPermitCount">2</div><div class="stat-sub">All active</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🗂️ All Documents</div>
+          <select id="docCategoryFilter" onchange="renderDocuments()" style="width:auto;padding:6px 10px;font-size:0.78rem;">
+            <option value="all">All Categories</option><option value="Contracts">Contracts</option><option value="Permits">Permits</option><option value="Drawings">Drawings</option><option value="Specs">Specs</option><option value="Insurance">Insurance</option>
+          </select>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead><tr><th>Name</th><th>Category</th><th>Type</th><th>Size</th><th>Uploaded By</th><th>Date</th></tr></thead>
+            <tbody id="docsTableBody"><tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ═══ MODAL: New Daily Report ═══ -->
+<div class="modal-overlay" id="modalReport">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">📋 New Daily Site Report</div><button class="modal-close" onclick="closeModal('modalReport')">✕</button></div>
+    <form id="formReport">
+    <div class="modal-body">
+      <div class="report-section"><div class="report-section-title">Project &amp; Date</div><div class="form-grid">
+        <div class="form-group"><label class="form-label">Project</label><select name="project"><option>Harbour Reach Condos – Phase 2</option><option>Grafton Street Commercial Reno</option><option>Bedford Commons – Framing</option></select></div>
+        <div class="form-group"><label class="form-label">Date</label><input type="date" name="date" value="2026-03-16" /></div>
+        <div class="form-group"><label class="form-label">Foreman</label><select name="foreman"><option>Jake Sullivan</option><option>Marc Tremblay</option><option>Raymond Okonkwo</option></select></div>
+        <div class="form-group"><label class="form-label">Weather</label><select name="weather"><option>🌤️ Partly Cloudy</option><option>☀️ Clear</option><option>🌧️ Rain</option><option>❄️ Snow / -</option><option>🌨️ Flurries</option><option>🌬️ Windy</option></select></div>
+      </div></div>
+      <div class="report-section"><div class="report-section-title">Work Completed Today</div><div class="form-group"><label class="form-label">Description of work performed</label><textarea name="work" placeholder="e.g. Completed floor 6 framing on north section…" rows="4"></textarea></div></div>
+      <div class="report-section"><div class="report-section-title">Crew &amp; Hours</div><div class="form-grid"><div class="form-group"><label class="form-label">Total workers on site</label><input type="number" name="crew" value="18" min="0" /></div><div class="form-group"><label class="form-label">Total man-hours</label><input type="number" name="hours" value="144" min="0" /></div></div></div>
+      <div class="report-section"><div class="report-section-title">Issues, Delays &amp; Visitors</div><div class="form-group" style="margin-bottom:10px;"><label class="form-label">Issues / delays</label><textarea name="issues" placeholder="e.g. Material delivery late…" rows="3"></textarea></div><div class="form-group"><label class="form-label">Visitors on site</label><input type="text" name="visitors" placeholder="e.g. Building inspector, owner rep" /></div></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline" onclick="closeModal('modalReport')">Cancel</button><button type="button" class="btn btn-orange" onclick="submitReport()">Save Report ✓</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ MODAL: New Change Order ═══ -->
+<div class="modal-overlay" id="modalCO">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">📝 New Change Order</div><button class="modal-close" onclick="closeModal('modalCO')">✕</button></div>
+    <form id="formCO">
+    <div class="modal-body">
+      <div class="form-group" style="margin-bottom:14px;"><label class="form-label">Project</label><select name="coProject"><option>Harbour Reach Condos – Phase 2</option><option>Grafton Street Commercial Reno</option></select></div>
+      <div class="form-group" style="margin-bottom:14px;"><label class="form-label">Change Order Title</label><input type="text" name="coTitle" placeholder="e.g. Additional waterproofing at parkade level" /></div>
+      <div class="form-group" style="margin-bottom:14px;"><label class="form-label">Description of Work</label><textarea name="coDesc" placeholder="Detailed description…" rows="4"></textarea></div>
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="form-group"><label class="form-label">Requested By</label><select name="coRequestedBy"><option>Jake Sullivan</option><option>Client / Owner</option><option>Architect</option><option>Engineer</option></select></div>
+        <div class="form-group"><label class="form-label">Date</label><input type="date" name="coDate" value="2026-03-16" /></div>
+        <div class="form-group"><label class="form-label">Labour Cost ($)</label><input type="number" name="coLabour" placeholder="0.00" step="0.01" /></div>
+        <div class="form-group"><label class="form-label">Material Cost ($)</label><input type="number" name="coMaterial" placeholder="0.00" step="0.01" /></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline" onclick="closeModal('modalCO')">Cancel</button><button type="button" class="btn btn-orange" onclick="submitCO()">Submit for Approval ✓</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Safety Log ═══ -->
+<div class="modal-overlay" id="modalSafety">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">⚠️ Log Safety Entry</div><button class="modal-close" onclick="closeModal('modalSafety')">✕</button></div>
+    <form id="formSafety">
+    <div class="modal-body">
+      <div class="form-grid" style="margin-bottom:14px;"><div class="form-group"><label class="form-label">Type</label><select name="safetyType"><option>Toolbox Talk</option><option>Near Miss</option><option>First Aid</option><option>Lost Time Incident</option><option>PPE Violation</option><option>Hazard Identified</option></select></div><div class="form-group"><label class="form-label">Date</label><input type="date" name="safetyDate" value="2026-03-16" /></div></div>
+      <div class="form-group" style="margin-bottom:14px;"><label class="form-label">Title / Summary</label><input type="text" name="safetyTitle" placeholder="e.g. Working at Heights – Fall Protection Briefing" /></div>
+      <div class="form-group" style="margin-bottom:14px;"><label class="form-label">Description</label><textarea name="safetyDesc" placeholder="Detailed description…" rows="4"></textarea></div>
+      <div class="form-grid"><div class="form-group"><label class="form-label">Reported By</label><select name="safetyBy"><option>Jake Sullivan</option><option>Marc Tremblay</option><option>Raymond Okonkwo</option></select></div><div class="form-group"><label class="form-label">Attendees (if talk)</label><input type="number" name="safetyAttendees" placeholder="0" min="0" /></div></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline" onclick="closeModal('modalSafety')">Cancel</button><button type="button" class="btn btn-orange" onclick="submitSafety()">Save Entry ✓</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ MODAL: New RFI ═══ -->
+<div class="modal-overlay" id="modalRFI">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">📨 New Request for Information</div><button class="modal-close" onclick="closeModal('modalRFI')">✕</button></div>
+    <form id="formRFI">
+    <div class="modal-body">
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="form-group"><label class="form-label">Project</label><select name="rfiProject"><option>Harbour Reach Condos – Phase 2</option><option>Grafton Street Commercial Reno</option></select></div>
+        <div class="form-group"><label class="form-label">Due Date</label><input type="date" name="rfiDue" value="2026-03-20" /></div>
+      </div>
+      <div class="form-group" style="margin-bottom:14px;"><label class="form-label">Subject</label><input type="text" name="rfiSubject" placeholder="e.g. Clarification on beam connection detail at grid B-7" /></div>
+      <div class="form-group" style="margin-bottom:14px;"><label class="form-label">Question / Detail</label><textarea name="rfiQuestion" placeholder="Describe the conflict or question in detail…" rows="5"></textarea></div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Assigned To</label><input type="text" name="rfiAssigned" placeholder="e.g. Architect — Morrison Partners" /></div>
+        <div class="form-group"><label class="form-label">Priority</label><select name="rfiPriority"><option>High</option><option>Medium</option><option>Low</option></select></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline" onclick="closeModal('modalRFI')">Cancel</button><button type="button" class="btn btn-orange" onclick="submitRFI()">Submit RFI ✓</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ MODAL: New Punch Item ═══ -->
+<div class="modal-overlay" id="modalPunch">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">✅ New Punch List Item</div><button class="modal-close" onclick="closeModal('modalPunch')">✕</button></div>
+    <form id="formPunch">
+    <div class="modal-body">
+      <div class="form-group" style="margin-bottom:14px;"><label class="form-label">Title / Deficiency</label><input type="text" name="punchTitle" placeholder="e.g. Drywall tape bubbling — unit 401 master bath" /></div>
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="form-group"><label class="form-label">Location</label><input type="text" name="punchLocation" placeholder="e.g. F4 — Unit 401" /></div>
+        <div class="form-group"><label class="form-label">Trade</label><select name="punchTrade"><option>Drywall</option><option>Electrical</option><option>Plumbing</option><option>Carpentry</option><option>Painting</option><option>Tile</option><option>Fireproofing</option><option>HVAC</option><option>Other</option></select></div>
+      </div>
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="form-group"><label class="form-label">Assigned To</label><input type="text" name="punchAssigned" placeholder="e.g. ABC Drywall Co." /></div>
+        <div class="form-group"><label class="form-label">Priority</label><select name="punchPriority"><option>High</option><option>Medium</option><option>Low</option></select></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Notes</label><textarea name="punchNotes" placeholder="Describe the issue and remedy…" rows="3"></textarea></div>
+        <div class="form-group"><label class="form-label">Due Date</label><input type="date" name="punchDue" value="2026-03-22" /></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline" onclick="closeModal('modalPunch')">Cancel</button><button type="button" class="btn btn-orange" onclick="submitPunch()">Add Item ✓</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ MODAL: New Timecard ═══ -->
+<div class="modal-overlay" id="modalTimecard">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">⏱️ Clock In Worker</div><button class="modal-close" onclick="closeModal('modalTimecard')">✕</button></div>
+    <form id="formTimecard">
+    <div class="modal-body">
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="form-group"><label class="form-label">Worker</label><select name="tcWorker"><option>Jake Sullivan</option><option>Marc Tremblay</option><option>Raymond Okonkwo</option><option>Luis Pereira</option><option>Dave Kim</option><option>Amir Bolouri</option></select></div>
+        <div class="form-group"><label class="form-label">Date</label><input type="date" name="tcDate" value="2026-03-16" /></div>
+      </div>
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="form-group"><label class="form-label">Clock In</label><input type="time" name="tcIn" value="07:00" /></div>
+        <div class="form-group"><label class="form-label">Clock Out</label><input type="time" name="tcOut" value="15:30" /></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Cost Code</label><select name="tcCostCode"><option>01-100 General Conditions</option><option>06-100 Framing</option><option>15-100 Plumbing Rough-in</option><option>16-100 Electrical Rough-in</option><option>03-100 Concrete</option><option>07-100 Insulation</option></select></div>
+        <div class="form-group"><label class="form-label">Project</label><select name="tcProject"><option>Harbour Reach Condos – Phase 2</option><option>Grafton Street Commercial Reno</option></select></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline" onclick="closeModal('modalTimecard')">Cancel</button><button type="button" class="btn btn-orange" onclick="submitTimecard()">Save Timecard ✓</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Report Viewer ═══ -->
+<div class="modal-overlay" id="modalReportView">
+  <div class="modal" style="max-width:680px;">
+    <div class="modal-header">
+      <div class="modal-title" id="reportViewTitle">Daily Report</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-sm btn-outline" id="reportPDFBtn">📄 Export PDF</button>
+        <button class="modal-close" onclick="closeModal('modalReportView')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="reportViewBody"></div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: RFI Viewer ═══ -->
+<div class="modal-overlay" id="modalRFIView">
+  <div class="modal" style="max-width:680px;">
+    <div class="modal-header">
+      <div class="modal-title" id="rfiViewTitle">RFI Detail</div>
+      <button class="modal-close" onclick="closeModal('modalRFIView')">✕</button>
+    </div>
+    <div class="modal-body" id="rfiViewBody"></div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Scripts: db first, then pdf, then app -->
+<script src="db.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
+<script src="pdf.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
