@@ -73,6 +73,21 @@
       <div class="nav-item" data-page="documents" onclick="navigate('documents')">
         <span class="nav-icon">📁</span> Documents
       </div>
+
+      <div class="nav-section-label">Intelligence</div>
+      <div class="nav-item" data-page="pmo" onclick="navigate('pmo')">
+        <span class="nav-icon">🎯</span> PMO Dashboard
+      </div>
+      <div class="nav-item" data-page="risk" onclick="navigate('risk')">
+        <span class="nav-icon">🔴</span> Risk Radar
+        <span class="nav-badge" id="riskBadge" style="background:var(--red);display:none;">0</span>
+      </div>
+      <div class="nav-item" data-page="compliance" onclick="navigate('compliance')">
+        <span class="nav-icon">🦺</span> Compliance
+      </div>
+      <div class="nav-item" data-page="procurement" onclick="navigate('procurement')">
+        <span class="nav-icon">📦</span> Procurement
+      </div>
     </nav>
 
     <div class="sidebar-footer">
@@ -496,7 +511,152 @@
       </div>
     </section>
 
+    <!-- ═══ PAGE: PMO EXECUTIVE DASHBOARD ═══ -->
+    <section class="page" id="page-pmo">
+      <div class="section-header mb-24">
+        <div class="section-title">🎯 PMO Executive Dashboard</div>
+        <button class="btn btn-orange" onclick="generateExecutiveSummary()">📄 Generate Summary</button>
+      </div>
+
+      <!-- Portfolio Health -->
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card green"><div class="stat-label">Projects On Track</div><div class="stat-value green" id="pmoOnTrack">1</div><div class="stat-sub">Within schedule</div></div>
+        <div class="stat-card yellow"><div class="stat-label">At Risk</div><div class="stat-value yellow" id="pmoAtRisk">1</div><div class="stat-sub">Needs attention</div></div>
+        <div class="stat-card orange"><div class="stat-label">Portfolio Value</div><div class="stat-value orange">$3.93M</div><div class="stat-sub">3 active projects</div></div>
+        <div class="stat-card blue"><div class="stat-label">Avg. Progress</div><div class="stat-value blue" id="pmoAvgProgress">49%</div><div class="stat-sub">Across portfolio</div></div>
+      </div>
+
+      <!-- Portfolio Heatmap + OKRs -->
+      <div class="grid-2 mb-24">
+        <div class="card">
+          <div class="card-header"><div class="card-title">🗺️ Portfolio Health Heatmap</div></div>
+          <div class="card-body" style="padding:16px 22px;">
+            <div id="portfolioHeatmap">Loading…</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">🎯 Objectives & Key Results</div><span class="badge badge-blue">Q1–Q3 2026</span></div>
+          <div class="card-body" style="padding:16px 22px;">
+            <div id="okrList">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Executive Summary Output -->
+      <div class="card" id="execSummaryCard" style="display:none;">
+        <div class="card-header"><div class="card-title">📄 Executive Summary</div><button class="btn btn-sm btn-outline" onclick="copyExecSummary()">📋 Copy</button></div>
+        <div class="card-body" style="padding:22px;">
+          <div id="execSummaryText" style="font-size:0.88rem;line-height:1.75;color:var(--text-primary);white-space:pre-wrap;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ PAGE: RISK RADAR ═══ -->
+    <section class="page" id="page-risk">
+      <div class="section-header mb-24">
+        <div class="section-title">🔴 Risk Radar</div>
+        <button class="btn btn-orange" onclick="runRiskScan()">🔄 Rescan</button>
+      </div>
+
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card red"><div class="stat-label">High Risk Flags</div><div class="stat-value" style="color:var(--red)" id="riskHighCount">0</div><div class="stat-sub">Immediate action</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Medium Risk</div><div class="stat-value yellow" id="riskMedCount">0</div><div class="stat-sub">Monitor closely</div></div>
+        <div class="stat-card green"><div class="stat-label">Low / Resolved</div><div class="stat-value green" id="riskLowCount">0</div><div class="stat-sub">Under control</div></div>
+        <div class="stat-card blue"><div class="stat-label">Last Scan</div><div class="stat-value" style="color:var(--blue);font-size:1.1rem;" id="riskLastScan">–</div><div class="stat-sub">Auto on load</div></div>
+      </div>
+
+      <div id="riskCards">Loading…</div>
+    </section>
+
+    <!-- ═══ PAGE: COMPLIANCE ═══ -->
+    <section class="page" id="page-compliance">
+      <div class="section-header mb-24">
+        <div class="section-title">🦺 Compliance Checklists</div>
+        <button class="btn btn-orange" onclick="showToast('New checklist template coming soon','info')">+ New Checklist</button>
+      </div>
+
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card green"><div class="stat-label">Completed</div><div class="stat-value green" id="compCompleteCount">0</div><div class="stat-sub">This week</div></div>
+        <div class="stat-card orange"><div class="stat-label">Pending</div><div class="stat-value orange" id="compPendingCount">0</div><div class="stat-sub">Not yet run</div></div>
+        <div class="stat-card blue"><div class="stat-label">Total Checklists</div><div class="stat-value blue" id="compTotalCount">0</div><div class="stat-sub">All types</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Compliance Score</div><div class="stat-value yellow" id="compScore">–</div><div class="stat-sub">This project</div></div>
+      </div>
+
+      <div id="complianceCards">Loading…</div>
+    </section>
+
+    <!-- ═══ PAGE: PROCUREMENT ═══ -->
+    <section class="page" id="page-procurement">
+      <div class="section-header mb-24">
+        <div class="section-title">📦 Procurement & Vendors</div>
+        <button class="btn btn-orange" onclick="openNewPO()">+ New PO</button>
+      </div>
+
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card orange"><div class="stat-label">Open POs</div><div class="stat-value orange" id="poOpenCount">0</div><div class="stat-sub">Pending / Issued</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Awaiting Invoice</div><div class="stat-value yellow" id="poInvCount">0</div><div class="stat-sub">Received not invoiced</div></div>
+        <div class="stat-card green"><div class="stat-label">Paid</div><div class="stat-value green" id="poPaidCount">0</div><div class="stat-sub">Closed</div></div>
+        <div class="stat-card blue"><div class="stat-label">Total Committed</div><div class="stat-value" style="color:var(--blue);font-size:1rem;" id="poTotalValue">$0</div><div class="stat-sub">All open POs</div></div>
+      </div>
+
+      <div class="grid-2 mb-24">
+        <div class="card">
+          <div class="card-header"><div class="card-title">📋 Purchase Orders</div></div>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead><tr><th>PO #</th><th>Vendor</th><th>Description</th><th>Amount</th><th>Status</th><th>Due</th><th></th></tr></thead>
+              <tbody id="poTableBody"><tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">🏢 Vendor Directory</div><button class="btn btn-sm btn-outline" onclick="showToast('Vendor management — add contacts to continue','info')">+ Vendor</button></div>
+          <div class="card-body" style="padding:0 22px 8px;">
+            <div id="vendorList">Loading…</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
+</div>
+
+<!-- ═══ FLOATING AI INSIGHTS WIDGET ═══ -->
+<div id="aiWidget" style="
+  position:fixed;bottom:24px;right:24px;z-index:999;
+  display:flex;flex-direction:column;align-items:flex-end;gap:12px;
+">
+  <div id="aiPanel" style="
+    display:none;
+    background:#fff;border:1px solid var(--border);
+    border-radius:16px;padding:0;width:360px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.12);
+    overflow:hidden;
+  ">
+    <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:18px 20px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="color:#fff;font-weight:700;font-size:0.95rem;">🤖 AI Insights</div>
+        <div style="color:rgba(255,255,255,0.6);font-size:0.72rem;">Site Command Intelligence Engine</div>
+      </div>
+      <button onclick="toggleAIPanel()" style="background:rgba(255,255,255,0.1);border:none;color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:0.8rem;">✕</button>
+    </div>
+    <div id="aiInsightsList" style="padding:16px 20px;max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">
+      <div style="text-align:center;color:var(--text-muted);padding:20px;">Scanning project data…</div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);">
+      <button class="btn btn-orange w-full" style="justify-content:center;" onclick="navigate('pmo');generateExecutiveSummary();toggleAIPanel()">📄 Generate PMO Summary</button>
+    </div>
+  </div>
+  <button onclick="toggleAIPanel()" id="aiBtn" style="
+    width:56px;height:56px;border-radius:50%;
+    background:linear-gradient(135deg,#ea580c,#f97316);
+    border:none;cursor:pointer;
+    box-shadow:0 8px 24px rgba(234,88,12,0.4);
+    font-size:1.4rem;transition:transform 0.2s;
+    display:flex;align-items:center;justify-content:center;
+  " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="AI Insights">
+    🤖
+  </button>
 </div>
 
 <!-- ═══ MODAL: New Daily Report ═══ -->
@@ -650,6 +810,27 @@
       <button class="modal-close" onclick="closeModal('modalRFIView')">✕</button>
     </div>
     <div class="modal-body" id="rfiViewBody"></div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: New Purchase Order ═══ -->
+<div class="modal-overlay" id="modalPO">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">📦 New Purchase Order</div><button class="modal-close" onclick="closeModal('modalPO')">✕</button></div>
+    <form id="formPO">
+    <div class="modal-body">
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="form-group"><label class="form-label">Vendor</label><select name="poVendor" id="poVendorSelect"><option>Loading…</option></select></div>
+        <div class="form-group"><label class="form-label">Project</label><select name="poProject"><option>Harbour Reach Condos – Phase 2</option><option>Grafton Street Commercial Reno</option></select></div>
+      </div>
+      <div class="form-group" style="margin-bottom:14px;"><label class="form-label">Description</label><textarea name="poDesc" placeholder="Describe the scope, materials, or services…" rows="3"></textarea></div>
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="form-group"><label class="form-label">Amount ($)</label><input type="number" name="poAmount" placeholder="0.00" step="0.01" /></div>
+        <div class="form-group"><label class="form-label">Due Date</label><input type="date" name="poDue" value="2026-04-30" /></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline" onclick="closeModal('modalPO')">Cancel</button><button type="button" class="btn btn-orange" onclick="submitPO()">Issue PO ✓</button></div>
+    </form>
   </div>
 </div>
 

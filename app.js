@@ -45,6 +45,10 @@ function navigate(page) {
   if (page === 'timecards')     renderTimecards();
   if (page === 'documents')     renderDocuments();
   if (page === 'schedule')      renderGantt();
+  if (page === 'pmo')           renderPMO();
+  if (page === 'risk')          runRiskScan();
+  if (page === 'compliance')    renderCompliance();
+  if (page === 'procurement')   renderProcurement();
 }
 
 function updateTopbar(page) {
@@ -61,6 +65,10 @@ function updateTopbar(page) {
     'timecards':     ['Timecards', 'Week of March 16, 2026'],
     'documents':     ['Document Vault', 'All projects — centralized filing'],
     'schedule':      ['Project Schedule', 'Harbour Reach Condos – Phase 2 — Gantt View'],
+    'pmo':           ['PMO Executive Dashboard', 'Portfolio intelligence — PMBOK 8th Edition'],
+    'risk':          ['Risk Radar', 'Proactive risk detection — live intelligence engine'],
+    'compliance':    ['Compliance', 'Construction safety checklists — OSHA / COR'],
+    'procurement':   ['Procurement', 'Vendor management — purchase orders — PMBOK 8th Edition'],
   };
   const actionLabels = {
     'dashboard':     '+ New Report',
@@ -75,6 +83,10 @@ function updateTopbar(page) {
     'timecards':     '+ Clock In',
     'documents':     '📤 Upload',
     'schedule':      '+ Add Task',
+    'pmo':           '📄 Generate Summary',
+    'risk':          '🔄 Rescan',
+    'compliance':    '+ New Checklist',
+    'procurement':   '+ New PO',
   };
   const t = titles[page] || ['Site Command', ''];
   document.getElementById('pageTitle').textContent = t[0];
@@ -96,6 +108,10 @@ function handlePrimaryAction() {
     'timecards':     openNewTimecard,
     'documents':     () => showToast('Upload feature — connect to cloud storage for full support', 'info'),
     'schedule':      () => showToast('Add task — coming in next update!', 'info'),
+    'pmo':           generateExecutiveSummary,
+    'risk':          runRiskScan,
+    'compliance':    () => showToast('New checklist template — coming soon!', 'info'),
+    'procurement':   openNewPO,
   };
   (actions[state.currentPage] || (() => {}))();
 }
@@ -121,6 +137,15 @@ function openNewRFI()      { openModal('modalRFI'); }
 function openNewPunch()    { openModal('modalPunch'); }
 function openNewTimecard() { openModal('modalTimecard'); }
 function openNewSub()      { showToast('Sub management — coming in next update!', 'info'); }
+function openNewPO()       {
+  // Populate vendor dropdown
+  const sel = document.getElementById('poVendorSelect');
+  if (sel) {
+    const vendors = Vendors.getAll();
+    sel.innerHTML = vendors.map(v => `<option>${v.name}</option>`).join('');
+  }
+  openModal('modalPO');
+}
 
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', e => {
@@ -829,3 +854,536 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 300);
   }, 3500);
 }
+
+// ══════════════════════════════════════════════════
+// v3 — RISK INTELLIGENCE ENGINE
+// ══════════════════════════════════════════════════
+
+function computeRiskScore() {
+  const cos = ChangeOrders.getAll();
+  const rfis = RFIs.getAll();
+  const safety = SafetyLogs.getAll();
+  const punch = PunchList.getAll();
+
+  const flags = [];
+
+  // Scope Creep: >2 pending COs
+  const pendingCOs = cos.filter(c => c.status === 'pending');
+  if (pendingCOs.length >= 2) {
+    flags.push({ level: 'high', signal: 'Scope Creep', project: 'Harbour Reach Condos – Phase 2',
+      message: `${pendingCOs.length} change orders pending approval ($${pendingCOs.reduce((s,c)=>s+Number(c.labourCost||0)+Number(c.materialCost||0),0).toLocaleString()} outstanding). Rising CO velocity is the #1 indicator of scope creep.`,
+      action: 'Review each change order with the owner and confirm scope before approving.',
+    });
+  }
+
+  // Timeline Drift: Grafton St is delayed
+  flags.push({ level: 'high', signal: 'Timeline Drift', project: 'Grafton Street Commercial Reno',
+    message: 'Project is 14 days behind schedule with 78% overall progress. At current velocity, projected completion has moved from Apr 1 to Apr 15, 2026.',
+    action: 'Implement recovery plan: add weekend shifts, accelerate drywall completion.',
+  });
+
+  // Budget Burn: Equipment > 89%
+  flags.push({ level: 'medium', signal: 'Budget Overrun Risk', project: 'Harbour Reach Condos – Phase 2',
+    message: 'Equipment rental is at 89% of budget with 39% of project remaining. At this burn rate, the equipment line will be exhausted before project completion.',
+    action: 'Review equipment rental rates with Cooper Crane. Consider returning non-critical equipment early.',
+  });
+
+  // RFI Overload: open RFIs near due date
+  const openRFIs = rfis.filter(r => r.status === 'open');
+  if (openRFIs.length > 1) {
+    flags.push({ level: 'medium', signal: 'RFI Backlog', project: 'Harbour Reach Condos – Phase 2',
+      message: `${openRFIs.length} open RFIs, including RFI-012 due ${openRFIs[0]?.dueDate||'—'}. Unresolved RFIs are the leading cause of schedule delay in design-build projects.`,
+      action: 'Escalate RFI-012 directly to Morrison Partners. Request response by COB today.',
+    });
+  }
+
+  // Safety: Near Miss logged recently
+  const nearMisses = safety.filter(s => s.type === 'Near Miss' && !s.resolved);
+  if (nearMisses.length > 0) {
+    flags.push({ level: 'medium', signal: 'Safety Alert', project: 'Harbour Reach Condos – Phase 2',
+      message: `${nearMisses.length} unresolved near-miss incident(s). Last: "${nearMisses[0].title}". Unresolved near-misses indicate elevated risk of an LTI event.`,
+      action: 'Conduct site walkthrough and resolve open safety items before next crane lift.',
+    });
+  }
+
+  // Process Maturity: Punch list growing
+  const openPunch = punch.filter(p => p.status !== 'complete').length;
+  if (openPunch > 4) {
+    flags.push({ level: 'low', signal: 'Punch List Growth', project: 'Harbour Reach Condos – Phase 2',
+      message: `${openPunch} open punch items. More than 4 open items at this project phase suggests quality control gaps before handover.`,
+      action: 'Schedule weekly punch list walk with trades. Target zero open items before F6 final inspection.',
+    });
+  }
+
+  // Good signal: Budget otherwise healthy
+  flags.push({ level: 'low', signal: 'Labour Tracking On Track', project: 'Harbour Reach Condos – Phase 2',
+    message: 'Labour and materials spend are both within 5% of expected burn rate for the current project phase. No cost overrun risk detected.',
+    action: 'Maintain current weekly timecard reviews to preserve this trend.',
+  });
+
+  return flags;
+}
+
+function runRiskScan() {
+  const flags = computeRiskScore();
+  const high = flags.filter(f => f.level === 'high');
+  const med  = flags.filter(f => f.level === 'medium');
+  const low  = flags.filter(f => f.level === 'low');
+
+  const el = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+  el('riskHighCount', high.length);
+  el('riskMedCount',  med.length);
+  el('riskLowCount',  low.length);
+  el('riskLastScan',  'Just now');
+
+  // Update sidebar badge
+  const badge = document.getElementById('riskBadge');
+  if (badge) {
+    badge.textContent = high.length + med.length;
+    badge.style.display = (high.length + med.length) > 0 ? 'inline-flex' : 'none';
+  }
+
+  const container = document.getElementById('riskCards');
+  if (!container) return;
+
+  const levelConfig = {
+    high:   { icon: '🚨', color: 'var(--red)', bg: '#fff5f5', border: '#fecaca', label: 'HIGH RISK' },
+    medium: { icon: '⚠️', color: '#d97706', bg: '#fffbeb', border: '#fde68a', label: 'MEDIUM RISK' },
+    low:    { icon: '✅', color: 'var(--green)', bg: '#f0fdf4', border: '#bbf7d0', label: 'LOW / INFO' },
+  };
+
+  container.innerHTML = [...high, ...med, ...low].map(f => {
+    const cfg = levelConfig[f.level];
+    return `<div style="background:${cfg.bg};border:1px solid ${cfg.border};border-radius:12px;padding:18px 20px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:1.4rem;">${cfg.icon}</span>
+        <div>
+          <div style="font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:${cfg.color};">${cfg.label}</div>
+          <div style="font-weight:700;font-size:0.92rem;">${f.signal}</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);">Project: ${f.project}</div>
+        </div>
+      </div>
+      <p style="font-size:0.84rem;line-height:1.65;color:var(--text-secondary);margin-bottom:10px;">${f.message}</p>
+      <div style="background:rgba(0,0,0,0.04);border-radius:8px;padding:10px 14px;font-size:0.8rem;">
+        <strong style="color:${cfg.color};">Recommended Action:</strong> ${f.action}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// v3 — PMO EXECUTIVE DASHBOARD
+// ══════════════════════════════════════════════════
+
+function renderPMO() {
+  renderPortfolioHeatmap();
+  renderOKRs();
+}
+
+function renderPortfolioHeatmap() {
+  const container = document.getElementById('portfolioHeatmap');
+  if (!container) return;
+
+  const projects = [
+    { name: 'Harbour Reach Condos – Phase 2', status: 'on-track', progress: 61, health: 'green', methodology: 'PMBOK Classic', contract: '$2.4M', completion: 'Aug 2026' },
+    { name: 'Grafton Street Commercial Reno',  status: 'delayed',   progress: 78, health: 'red',   methodology: 'Waterfall',     contract: '$640K', completion: 'Apr 2026 – DELAYED' },
+    { name: 'Bedford Commons – Framing',       status: 'pre-start', progress: 8,  health: 'yellow', methodology: 'Hybrid',        contract: '$890K', completion: 'TBD' },
+  ];
+
+  const healthConfig = {
+    green:  { icon: '🟢', label: 'On Track',  bg: '#f0fdf4', border: '#86efac' },
+    red:    { icon: '🔴', label: 'Delayed',   bg: '#fff5f5', border: '#fca5a5' },
+    yellow: { icon: '🟡', label: 'Pre-Start', bg: '#fffbeb', border: '#fde68a' },
+  };
+
+  container.innerHTML = projects.map(p => {
+    const cfg = healthConfig[p.health];
+    const badge = { 'PMBOK Classic': 'badge-blue', 'Waterfall': 'badge-gray', 'Hybrid': 'badge-orange' };
+    return `<div style="background:${cfg.bg};border:1px solid ${cfg.border};border-radius:10px;padding:14px 16px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <div style="font-weight:700;font-size:0.88rem;">${p.name}</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">${p.contract} · ${p.completion}</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+          <span class="badge ${badge[p.methodology]||'badge-gray'}" style="font-size:0.65rem;">${p.methodology}</span>
+          <span>${cfg.icon}</span>
+        </div>
+      </div>
+      <div style="background:rgba(0,0,0,0.06);border-radius:4px;height:6px;overflow:hidden;">
+        <div style="height:100%;width:${p.progress}%;background:${p.health==='red'?'linear-gradient(90deg,#dc2626,#ef4444)':p.health==='green'?'var(--brand)':'linear-gradient(90deg,#d97706,#f59e0b)'};border-radius:4px;transition:width 1s;"></div>
+      </div>
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">${p.progress}% complete</div>
+    </div>`;
+  }).join('');
+}
+
+function renderOKRs() {
+  const container = document.getElementById('okrList');
+  if (!container) return;
+  const okrs = OKRs.getAll();
+
+  if (!okrs.length) { container.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">No OKRs yet</div></div>'; return; }
+
+  container.innerHTML = okrs.map(o => {
+    const avgProgress = Math.round(o.keyResults.reduce((s,k)=>s+k.progress,0)/o.keyResults.length);
+    const healthColor = avgProgress >= 80 ? 'var(--green)' : avgProgress >= 50 ? '#d97706' : 'var(--red)';
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div style="font-weight:700;font-size:0.88rem;line-height:1.3;flex:1;">${o.title}</div>
+        <div style="font-size:1.1rem;font-weight:900;color:${healthColor};flex-shrink:0;margin-left:8px;">${avgProgress}%</div>
+      </div>
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px;">${o.quarter} · Owner: ${o.owner}</div>
+      ${o.keyResults.map(kr => `
+        <div style="margin-bottom:6px;">
+          <div style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:3px;">${kr.kr}</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;height:5px;background:var(--surface-4);border-radius:3px;overflow:hidden;">
+              <div style="height:100%;width:${kr.progress}%;background:${kr.progress>=80?'var(--green)':kr.progress>=50?'#d97706':'var(--red)'};border-radius:3px;transition:width 1s;"></div>
+            </div>
+            <span style="font-size:0.7rem;font-weight:700;color:var(--text-muted);width:28px;text-align:right;">${kr.progress}%</span>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function generateExecutiveSummary() {
+  const cos = ChangeOrders.getAll();
+  const rfis = RFIs.getAll();
+  const punch = PunchList.getAll();
+  const vendors = Vendors.getAll();
+  const pos = PurchaseOrders.getAll();
+  const flags = computeRiskScore();
+
+  const pendingCOs = cos.filter(c=>c.status==='pending');
+  const openRFIs = rfis.filter(r=>r.status==='open');
+  const openPunch = punch.filter(p=>p.status!=='complete').length;
+  const highFlags = flags.filter(f=>f.level==='high').length;
+  const openPOValue = pos.filter(p=>p.status!=='paid').reduce((s,p)=>s+Number(p.amount||0),0);
+
+  const today = new Date().toLocaleDateString('en-CA', { year:'numeric', month:'long', day:'numeric' });
+
+  const summary = `SULLIVAN BUILD CO. — EXECUTIVE PROJECT SUMMARY
+Prepared by: Site Command AI Intelligence Engine
+Date: ${today}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PORTFOLIO OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Sullivan Build Co. currently manages three active projects with a combined contract value of $3.93M. The flagship project, Harbour Reach Condos – Phase 2 ($2.4M), is progressing at 61% completion and remains projected on budget, with a current spend of $1.49M against a revised contract of $2.46M. The project is leveraging a PMBOK Classic methodology with phase-gate controls and is tracking toward an August 2026 handover.
+
+The Grafton Street Commercial Reno ($640K) is the portfolio's primary risk concern. At 78% completion, the project is currently 14 calendar days behind the original April 2026 completion date. A recovery plan has been activated, and the project team is targeting an April 15 revised completion through accelerated drywall and MEP coordination.
+
+Bedford Commons – Framing ($890K) is in pre-mobilization, with an April 1, 2026 start date confirmed and key subcontracts under review.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KEY RISK FLAGS (${highFlags} HIGH / ${flags.filter(f=>f.level==='medium').length} MEDIUM)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${flags.filter(f=>f.level==='high').map(f=>`• [HIGH] ${f.signal}: ${f.message}`).join('\n\n')}
+
+${flags.filter(f=>f.level==='medium').map(f=>`• [MEDIUM] ${f.signal}: ${f.message}`).join('\n\n')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADMIN STATUS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Change Orders: ${pendingCOs.length} pending approval, totalling $${pendingCOs.reduce((s,c)=>s+Number(c.labourCost||0)+Number(c.materialCost||0),0).toLocaleString()}.
+RFIs: ${openRFIs.length} open, ${openRFIs.filter(r=>r.priority==='High').length} high priority.
+Punch List: ${openPunch} open items requiring trade coordination before inspection.
+Procurement: ${pos.filter(p=>!['paid'].includes(p.status)).length} active purchase orders. Total committed: $${openPOValue.toLocaleString()}.
+Safety: Zero lost-time incidents reported across all projects.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXECUTIVE DECISION ITEMS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Approve or reject CO-008 ($12,400) and CO-007 ($6,000) before next billing cycle.
+2. Authorize Grafton Street recovery plan and confirm Saturday overtime with R. Okonkwo.
+3. Escalate RFI-012 (beam connection detail) to Morrison Partners — holds steel fabrication.
+4. Review equipment rental utilization on Harbour Reach — 89% budget consumed.
+
+Generated by Site Command v3 — PMBOK 8th Edition Intelligence Engine.`;
+
+  const card = document.getElementById('execSummaryCard');
+  const text = document.getElementById('execSummaryText');
+  if (card && text) { card.style.display = 'block'; text.textContent = summary; card.scrollIntoView({ behavior: 'smooth' }); }
+  showToast('📄 Executive summary generated!', 'success');
+  return summary;
+}
+
+function copyExecSummary() {
+  const text = document.getElementById('execSummaryText')?.textContent;
+  if (text) { navigator.clipboard.writeText(text).then(()=>showToast('📋 Copied to clipboard!','success')).catch(()=>showToast('Copy failed','error')); }
+}
+
+// ══════════════════════════════════════════════════
+// v3 — COMPLIANCE CHECKLISTS
+// ══════════════════════════════════════════════════
+
+function renderCompliance() {
+  const all = Compliance.getAll();
+  const complete = all.filter(c=>c.status==='complete').length;
+  const pending  = all.filter(c=>c.status==='pending').length;
+  const score = all.length ? Math.round((complete / all.length) * 100) + '%' : '—';
+
+  const el = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+  el('compCompleteCount', complete);
+  el('compPendingCount',  pending);
+  el('compTotalCount',    all.length);
+  el('compScore',         score);
+
+  const container = document.getElementById('complianceCards');
+  if (!container) return;
+
+  const typeIcons = { 'Fall Protection': '🪝', 'Electrical Lockout/Tagout': '⚡', 'Scaffolding': '🏗️', 'Equipment Inspection': '🏗️' };
+  const freqBadge = { 'Daily': 'badge-orange', 'Weekly': 'badge-blue', 'Per Task': 'badge-yellow' };
+
+  container.innerHTML = all.map(c => {
+    const icon = typeIcons[c.type] || '✅';
+    const isComplete = c.status === 'complete';
+    const itemsDone = (c.completedItems||[]).filter(Boolean).length;
+    const total = (c.items||[]).length;
+    const pct = total ? Math.round((itemsDone/total)*100) : 0;
+
+    return `<div class="card mb-24">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:1.5rem;">${icon}</span>
+          <div>
+            <div class="card-title" style="margin-bottom:2px;">${c.title}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);">Project: ${c.project} · Inspector: ${c.inspector||'—'} · Last: ${c.lastCompleted||'—'}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="badge ${freqBadge[c.frequency]||'badge-gray'}">${c.frequency}</span>
+          <span class="badge ${isComplete?'badge-green':'badge-orange'}">${isComplete?'✓ Complete':'Pending'}</span>
+        </div>
+      </div>
+      <div class="card-body" style="padding:16px 22px;">
+        <div style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div style="font-size:0.78rem;font-weight:600;color:var(--text-secondary);">Checklist Items (${itemsDone}/${total})</div>
+            <span style="font-size:0.78rem;font-weight:700;color:${pct===100?'var(--green)':'var(--text-muted)'};">${pct}%</span>
+          </div>
+          <div style="height:4px;background:var(--surface-4);border-radius:2px;overflow:hidden;margin-bottom:12px;">
+            <div style="height:100%;width:${pct}%;background:${pct===100?'var(--green)':'var(--brand)'};border-radius:2px;transition:width 1s;"></div>
+          </div>
+        </div>
+        ${(c.items||[]).map((item,i) => {
+          const checked = (c.completedItems||[])[i] === true;
+          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light);">
+            <div class="check-box ${checked?'checked':''}" data-compliance-id="${c.id}" data-idx="${i}" style="width:18px;height:18px;border-radius:4px;border:2px solid ${checked?'var(--green)':'var(--border)'};background:${checked?'var(--green)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;color:#fff;" onclick="toggleComplianceItem('${c.id}',${i},this)">${checked?'✓':''}</div>
+            <div style="font-size:0.82rem;color:${checked?'var(--text-muted)':'var(--text-primary)'};${checked?'text-decoration:line-through;':''}">${item.item}</div>
+            ${item.required ? '<span class="badge badge-red" style="font-size:0.6rem;flex-shrink:0;">Required</span>' : ''}
+          </div>`;
+        }).join('')}
+        <div style="padding-top:12px;">
+          <button class="btn btn-sm btn-orange" onclick="completeChecklist('${c.id}')">✓ Mark All Complete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleComplianceItem(id, idx, el) {
+  const c = Compliance.getById(id);
+  if (!c) return;
+  const items = [...(c.completedItems||new Array(c.items.length).fill(false))];
+  while (items.length < c.items.length) items.push(false);
+  items[idx] = !items[idx];
+  Compliance.update(id, { completedItems: items });
+  renderCompliance();
+  showToast(items[idx] ? '✓ Item checked' : 'Item unchecked', 'info');
+}
+
+function completeChecklist(id) {
+  const c = Compliance.getById(id);
+  if (!c) return;
+  const allTrue = new Array(c.items.length).fill(true);
+  Compliance.complete(id, allTrue);
+  renderCompliance();
+  showToast('✅ Checklist marked complete!', 'success');
+}
+
+// ══════════════════════════════════════════════════
+// v3 — PROCUREMENT
+// ══════════════════════════════════════════════════
+
+function renderProcurement() {
+  const pos = PurchaseOrders.getAll();
+  const vendors = Vendors.getAll();
+
+  const open  = pos.filter(p=>['pending','issued','received'].includes(p.status));
+  const inv   = pos.filter(p=>p.status==='invoiced');
+  const paid  = pos.filter(p=>p.status==='paid');
+  const totalCommitted = open.concat(inv).reduce((s,p)=>s+Number(p.amount||0),0);
+
+  const el = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+  el('poOpenCount',  open.length);
+  el('poInvCount',   inv.length);
+  el('poPaidCount',  paid.length);
+  el('poTotalValue', '$' + totalCommitted.toLocaleString());
+
+  // PO Table
+  const tbody = document.getElementById('poTableBody');
+  if (tbody) {
+    const statusBadge = { pending:'badge-yellow', issued:'badge-blue', received:'badge-orange', invoiced:'badge-red', paid:'badge-green' };
+    const statusLabel = { pending:'Pending', issued:'Issued', received:'Received', invoiced:'Invoiced', paid:'Paid' };
+    tbody.innerHTML = pos.map(p => `<tr>
+      <td class="font-mono" style="font-size:0.77rem;">${p.poNumber||'—'}</td>
+      <td style="font-size:0.82rem;">${p.vendor||'—'}</td>
+      <td style="font-size:0.78rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.description||''}">${p.description||'—'}</td>
+      <td style="font-weight:700;">$${Number(p.amount||0).toLocaleString()}</td>
+      <td><span class="badge ${statusBadge[p.status]||'badge-gray'}">${statusLabel[p.status]||p.status}</span></td>
+      <td class="font-mono" style="font-size:0.77rem;">${p.dueDate||'—'}</td>
+      <td>
+        <div style="display:flex;gap:4px;">
+          ${p.status==='issued'?`<button class="btn btn-sm btn-outline" onclick="doPOReceive('${p.id}')">Receive</button>`:''}
+          ${p.status==='received'?`<button class="btn btn-sm btn-outline" onclick="doPOInvoice('${p.id}')">Invoice</button>`:''}
+          ${p.status==='invoiced'?`<button class="btn btn-sm btn-success" onclick="doPOPay('${p.id}')">Pay</button>`:''}
+        </div>
+      </td>
+    </tr>`).join('');
+  }
+
+  // Vendor List
+  const vList = document.getElementById('vendorList');
+  if (vList) {
+    const stars = n => '★'.repeat(n) + '☆'.repeat(5-n);
+    vList.innerHTML = vendors.map(v => `
+      <div class="crew-row" style="padding:10px 0;">
+        <div class="crew-avatar" style="background:${v.status==='active'?'var(--brand-dim)':'var(--surface-3)'};border:1px solid ${v.status==='active'?'var(--brand-border)':'var(--border)'};">${v.name.charAt(0)}</div>
+        <div class="crew-info">
+          <div class="crew-name">${v.name}</div>
+          <div class="crew-trade">${v.category}</div>
+          <div style="font-size:0.7rem;color:#d97706;">${stars(v.rating||0)}</div>
+        </div>
+        <span class="badge ${v.status==='active'?'badge-green':'badge-gray'}">${v.status}</span>
+      </div>`).join('');
+  }
+}
+
+function doPOReceive(id) { PurchaseOrders.receive(id); renderProcurement(); showToast('📦 PO marked as Received', 'success'); }
+function doPOInvoice(id) { PurchaseOrders.invoice(id); renderProcurement(); showToast('🧾 PO marked as Invoiced', 'success'); }
+function doPOPay(id)     { PurchaseOrders.pay(id);     renderProcurement(); showToast('✅ PO marked as Paid',     'success'); }
+
+function submitPO() {
+  const f = document.getElementById('formPO');
+  const data = {
+    poNumber: 'PO-2026-' + String(PurchaseOrders.getAll().length + 45).padStart(3,'0'),
+    vendor:      f.querySelector('[name=poVendor]').value,
+    project:     f.querySelector('[name=poProject]').value,
+    description: f.querySelector('[name=poDesc]').value.trim(),
+    amount:      parseFloat(f.querySelector('[name=poAmount]').value) || 0,
+    dueDate:     f.querySelector('[name=poDue]').value,
+    status: 'pending',
+    issueDate: new Date().toISOString().slice(0,10),
+  };
+  if (!data.description) { showToast('Please enter a description', 'error'); return; }
+  PurchaseOrders.add(data);
+  closeModal('modalPO'); f.reset();
+  f.querySelector('[name=poDue]').value = '2026-04-30';
+  renderProcurement();
+  showToast(`📦 ${data.poNumber} issued to ${data.vendor}`, 'success');
+}
+
+// ══════════════════════════════════════════════════
+// v3 — AI INSIGHTS PANEL
+// ══════════════════════════════════════════════════
+
+let aiPanelOpen = false;
+
+function toggleAIPanel() {
+  aiPanelOpen = !aiPanelOpen;
+  const panel = document.getElementById('aiPanel');
+  if (panel) {
+    panel.style.display = aiPanelOpen ? 'block' : 'none';
+    if (aiPanelOpen) loadAIInsights();
+  }
+}
+
+function generateInsights() {
+  const flags = computeRiskScore();
+  const pos = PurchaseOrders.getAll();
+  const rfis = RFIs.getAll();
+  const punch = PunchList.getAll();
+  const cos = ChangeOrders.getAll();
+  const compliance = Compliance.getAll();
+
+  const insights = [];
+
+  // High priority first — from risk engine
+  flags.filter(f=>f.level==='high').forEach(f => {
+    insights.push({ level: 'high', icon: '🚨', text: f.message, action: f.action, signal: f.signal });
+  });
+  flags.filter(f=>f.level==='medium').forEach(f => {
+    insights.push({ level: 'medium', icon: '⚠️', text: f.message, action: f.action, signal: f.signal });
+  });
+
+  // Procurement insights
+  const unpaidInvoiced = pos.filter(p=>p.status==='invoiced').length;
+  if (unpaidInvoiced > 0) {
+    insights.push({ level: 'medium', icon: '🧾', signal: 'Invoice Due',
+      text: `${unpaidInvoiced} purchase order(s) have been invoiced and are awaiting payment. Late payments can affect subcontractor availability.`,
+      action: 'Review in Procurement → mark as paid when processed.',
+    });
+  }
+
+  // Compliance insight
+  const pendingComp = compliance.filter(c=>c.status==='pending').length;
+  if (pendingComp > 0) {
+    insights.push({ level: 'medium', icon: '🦺', signal: 'Compliance Gap',
+      text: `${pendingComp} compliance checklist(s) are pending completion. OSHA requires daily fall protection and equipment inspections.`,
+      action: 'Complete pending checklists before tomorrow\'s morning crew arrival.',
+    });
+  }
+
+  // Positive signal
+  insights.push({ level: 'low', icon: '✅', signal: 'Budget Healthy',
+    text: 'Overall project spend is on track. Labour ($612K/$840K) and materials ($698K/$1.02M) are both within 5% of expected burn rate.',
+    action: 'Continue weekly budget reviews.',
+  });
+
+  return insights.slice(0, 5);
+}
+
+function loadAIInsights() {
+  const container = document.getElementById('aiInsightsList');
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:16px;">🤖 Scanning all project data…</div>';
+
+  setTimeout(() => {
+    const insights = generateInsights();
+    const levelColor = { high: '#dc2626', medium: '#d97706', low: '#16a34a' };
+    const levelBg = { high: '#fff5f5', medium: '#fffbeb', low: '#f0fdf4' };
+
+    container.innerHTML = insights.map(ins => `
+      <div style="background:${levelBg[ins.level]};border-radius:10px;padding:12px 14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-size:1.1rem;">${ins.icon}</span>
+          <span style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:${levelColor[ins.level]};">${ins.signal}</span>
+        </div>
+        <p style="font-size:0.8rem;line-height:1.55;color:var(--text-secondary);margin-bottom:6px;">${ins.text}</p>
+        <div style="font-size:0.75rem;color:${levelColor[ins.level]};font-weight:600;">→ ${ins.action}</div>
+      </div>`).join('');
+  }, 600);
+}
+
+// ══════════════════════════════════════════════════
+// INIT — on load, run risk scan to update badges
+// ══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  // Run a silent risk scan on load to populate the sidebar badge
+  setTimeout(() => {
+    const flags = computeRiskScore();
+    const badge = document.getElementById('riskBadge');
+    const highMed = flags.filter(f => f.level === 'high' || f.level === 'medium').length;
+    if (badge && highMed > 0) {
+      badge.textContent = highMed;
+      badge.style.display = 'inline-flex';
+    }
+  }, 500);
+});

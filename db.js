@@ -3,9 +3,11 @@
    Full CRUD for all app entities.
    Data persists across browser sessions.
    v2 — Added: RFIs, Punch List, Timecards, Documents, Schedule
+   v3 — Added: OKRs, Vendors, PurchaseOrders, ComplianceChecklists
+              Risk Engine data, Methodology per project
    ================================================ */
 
-const DB_VERSION = '2.0';
+const DB_VERSION = '3.0';
 const PREFIX = 'sc_';
 
 // ── Keys ─────────────────────────────────────────
@@ -23,6 +25,10 @@ const KEYS = {
   documents:    PREFIX + 'documents',
   schedule:     PREFIX + 'schedule',
   version:      PREFIX + 'version',
+  okrs:         PREFIX + 'okrs',
+  vendors:      PREFIX + 'vendors',
+  purchaseOrders: PREFIX + 'purchase_orders',
+  compliance:   PREFIX + 'compliance',
 };
 
 // ── Low-level helpers ────────────────────────────
@@ -195,13 +201,67 @@ const Schedule = {
   getById:  (id)       => getById(KEYS.schedule, id),
 };
 
+// ═══════════════════════════════════════════════════
+// NEW MODULES — v3
+// ═══════════════════════════════════════════════════
+
+// ── OKRs (Objectives & Key Results) ─────────────
+const OKRs = {
+  getAll:   ()         => getAll(KEYS.okrs),
+  add:      (data)     => addItem(KEYS.okrs, data),
+  update:   (id, data) => updateItem(KEYS.okrs, id, data),
+  delete:   (id)       => deleteItem(KEYS.okrs, id),
+  getById:  (id)       => getById(KEYS.okrs, id),
+  updateProgress: (id, krIndex, pct) => {
+    const obj = getById(KEYS.okrs, id);
+    if (!obj) return null;
+    obj.keyResults[krIndex].progress = pct;
+    return updateItem(KEYS.okrs, id, { keyResults: obj.keyResults });
+  },
+};
+
+// ── VENDORS ─────────────────────────────────────
+const Vendors = {
+  getAll:   ()         => getAll(KEYS.vendors),
+  add:      (data)     => addItem(KEYS.vendors, data),
+  update:   (id, data) => updateItem(KEYS.vendors, id, data),
+  delete:   (id)       => deleteItem(KEYS.vendors, id),
+  getById:  (id)       => getById(KEYS.vendors, id),
+  getActive:()         => getAll(KEYS.vendors).filter(v => v.status === 'active'),
+};
+
+// ── PURCHASE ORDERS ─────────────────────────────
+const PurchaseOrders = {
+  getAll:    ()         => getAll(KEYS.purchaseOrders),
+  add:       (data)     => addItem(KEYS.purchaseOrders, data),
+  update:    (id, data) => updateItem(KEYS.purchaseOrders, id, data),
+  delete:    (id)       => deleteItem(KEYS.purchaseOrders, id),
+  getById:   (id)       => getById(KEYS.purchaseOrders, id),
+  getByStatus: (s)      => getAll(KEYS.purchaseOrders).filter(p => p.status === s),
+  receive:   (id)       => updateItem(KEYS.purchaseOrders, id, { status: 'received', receivedAt: now() }),
+  invoice:   (id)       => updateItem(KEYS.purchaseOrders, id, { status: 'invoiced', invoicedAt: now() }),
+  pay:       (id)       => updateItem(KEYS.purchaseOrders, id, { status: 'paid',     paidAt: now() }),
+};
+
+// ── COMPLIANCE CHECKLISTS ────────────────────────
+const Compliance = {
+  getAll:    ()         => getAll(KEYS.compliance),
+  add:       (data)     => addItem(KEYS.compliance, data),
+  update:    (id, data) => updateItem(KEYS.compliance, id, data),
+  delete:    (id)       => deleteItem(KEYS.compliance, id),
+  getById:   (id)       => getById(KEYS.compliance, id),
+  complete:  (id, items) => updateItem(KEYS.compliance, id, { status: 'complete', completedItems: items, completedAt: now() }),
+  getByType: (type)     => getAll(KEYS.compliance).filter(c => c.type === type),
+};
+
 // ── SEED DATA ────────────────────────────────────
 function seedIfEmpty() {
-  const seeded = localStorage.getItem(PREFIX + 'seeded_v2');
+  const seeded = localStorage.getItem(PREFIX + 'seeded_v3');
   if (seeded) return;
 
-  // Clear old v1 seed marker
+  // Clear old seed markers
   localStorage.removeItem(PREFIX + 'seeded');
+  localStorage.removeItem(PREFIX + 'seeded_v2');
 
   // Seed reports
   const reportsData = [
@@ -353,26 +413,180 @@ function seedIfEmpty() {
   ];
   scheduleData.forEach(s => Schedule.add(s));
 
+  // ═══ NEW v3 SEED DATA ═══
+
+  // Seed OKRs
+  const okrsData = [
+    {
+      title: 'Deliver Harbour Reach on time and on budget',
+      objective: 'Complete Phase 2 by Aug 2026 within the $2.4M contract value, achieving 95%+ client satisfaction.',
+      quarter: 'Q1–Q3 2026',
+      linkedProject: 'Harbour Reach Condos – Phase 2',
+      owner: 'Jake Sullivan',
+      keyResults: [
+        { kr: 'Maintain schedule variance within 5% of baseline at each phase gate', progress: 61, target: 100, unit: '%' },
+        { kr: 'Keep actual spend ≤ 102% of budget at any billing period', progress: 73, target: 100, unit: '%' },
+        { kr: 'Zero lost-time incidents for the duration of the project', progress: 100, target: 100, unit: '%' },
+        { kr: 'All RFIs responded to within 5 business days', progress: 75, target: 100, unit: '%' },
+      ],
+    },
+    {
+      title: 'Grow Sullivan Build Co. revenue by 25% in 2026',
+      objective: 'Secure at least 2 new commercial contracts and expand crew capacity to handle concurrent projects.',
+      quarter: 'FY 2026',
+      linkedProject: 'All Projects',
+      owner: 'Jake Sullivan',
+      keyResults: [
+        { kr: 'Win 2 new contracts worth ≥ $500K each', progress: 50, target: 100, unit: '%' },
+        { kr: 'Hire 3 journeymen across carpentry and electrical', progress: 33, target: 100, unit: '%' },
+        { kr: 'Achieve <10% rework rate on all projects', progress: 80, target: 100, unit: '%' },
+      ],
+    },
+    {
+      title: 'Complete Grafton Street Reno and recover schedule',
+      objective: 'Close the 14-day schedule gap on Grafton Street by April 15, 2026 through accelerated work plan.',
+      quarter: 'Q1 2026',
+      linkedProject: 'Grafton Street Commercial Reno',
+      owner: 'Raymond Okonkwo',
+      keyResults: [
+        { kr: 'Recovery plan submitted and approved by March 20', progress: 100, target: 100, unit: '%' },
+        { kr: 'Recover 7+ calendar days by April 1 through overtime/acceleration', progress: 30, target: 100, unit: '%' },
+        { kr: 'All moisture damage remediated and signed off', progress: 60, target: 100, unit: '%' },
+      ],
+    },
+  ];
+  okrsData.forEach(o => OKRs.add(o));
+
+  // Seed Vendors
+  const vendorsData = [
+    { name: 'Metalfab Steel Inc.', category: 'Structural Steel', contact: 'Dan Arsenault', phone: '902-555-0182', email: 'dan@metalfab.ca', status: 'active', rating: 4, notes: 'Anchor bolt delays on Mar 16 — monitor delivery reliability.' },
+    { name: 'Morrison Partners Architects', category: 'Design / Architecture', contact: 'Sarah Morrison', phone: '902-555-0241', email: 'smorrison@morrisonpartners.ca', status: 'active', rating: 5, notes: 'Primary architect on Harbour Reach. Excellent communication.' },
+    { name: 'KWR Mechanical Engineering', category: 'Mechanical / Structural Eng.', contact: 'Kevin Reilly', phone: '902-555-0318', email: 'kreilly@kwreng.ca', status: 'active', rating: 4, notes: 'Structural drawings Rev B — solid work.' },
+    { name: 'Maritime Tile & Stone', category: 'Tile', contact: 'Paulo Serrano', phone: '902-555-0477', email: 'info@maritimetile.ca', status: 'active', rating: 3, notes: 'Punch list grout issue at lobby. Watching quality on remaining work.' },
+    { name: 'FireStop Inc.', category: 'Firestopping', contact: 'Bill Hawkins', phone: '902-555-0555', email: 'bill@firestop.ca', status: 'active', rating: 4, notes: 'Pending punch list remediation at F3.' },
+    { name: 'AGRA Earth & Environmental', category: 'Geotechnical', contact: 'Lisa Chen', phone: '902-555-0628', email: 'lchen@agra.ca', status: 'inactive', rating: 5, notes: 'Completed geotech report. No active scope.' },
+    { name: 'ABC Drywall Co.', category: 'Drywall', contact: 'Mike Boudreau', phone: '902-555-0714', email: 'mboudreau@abcdrywall.ca', status: 'active', rating: 3, notes: 'Tape bubble issue in unit 401 — redo required.' },
+    { name: 'Cooper Crane Services', category: 'Equipment Rental', contact: 'Tom Cooper', phone: '902-555-0800', email: 'tcooper@coopercrane.ca', status: 'active', rating: 5, notes: 'Reliable crane service — book 48h in advance for tower crane.' },
+  ];
+  vendorsData.forEach(v => Vendors.add(v));
+
+  // Seed Purchase Orders
+  const posData = [
+    { poNumber: 'PO-2026-041', vendor: 'Metalfab Steel Inc.', project: 'Harbour Reach Condos – Phase 2', description: 'Structural steel package — W-beams F4-F6, anchor bolts, hardware', amount: 148000, status: 'received', issueDate: '2026-02-10', dueDate: '2026-03-14', receivedAt: '2026-03-16T11:00:00Z', invoicedAt: null, paidAt: null },
+    { poNumber: 'PO-2026-042', vendor: 'Cooper Crane Services', project: 'Harbour Reach Condos – Phase 2', description: 'Tower crane rental — March 2026 (monthly)', amount: 18500, status: 'invoiced', issueDate: '2026-03-01', dueDate: '2026-04-01', receivedAt: '2026-03-01T07:00:00Z', invoicedAt: '2026-03-15T09:00:00Z', paidAt: null },
+    { poNumber: 'PO-2026-043', vendor: 'ABC Drywall Co.', project: 'Harbour Reach Condos – Phase 2', description: 'Drywall supply and installation — F3-F5 corridor', amount: 42800, status: 'pending', issueDate: '2026-03-16', dueDate: '2026-04-10', receivedAt: null, invoicedAt: null, paidAt: null },
+    { poNumber: 'PO-2026-044', vendor: 'FireStop Inc.', project: 'Harbour Reach Condos – Phase 2', description: 'Firestopping — all penetrations F1-F6 per engineer schedule', amount: 24500, status: 'issued', issueDate: '2026-03-08', dueDate: '2026-04-30', receivedAt: null, invoicedAt: null, paidAt: null },
+    { poNumber: 'PO-2026-039', vendor: 'AGRA Earth & Environmental', project: 'Harbour Reach Condos – Phase 2', description: 'Phase 1 & 2 Environmental Site Assessment', amount: 12200, status: 'paid', issueDate: '2025-09-15', dueDate: '2025-11-01', receivedAt: '2025-10-28T14:00:00Z', invoicedAt: '2025-10-29T09:00:00Z', paidAt: '2025-11-08T10:00:00Z' },
+    { poNumber: 'PO-2026-040', vendor: 'Maritime Tile & Stone', project: 'Harbour Reach Condos – Phase 2', description: 'Lobby and corridor tile supply & installation', amount: 38600, status: 'issued', issueDate: '2026-03-10', dueDate: '2026-05-01', receivedAt: null, invoicedAt: null, paidAt: null },
+  ];
+  posData.forEach(p => PurchaseOrders.add(p));
+
+  // Seed Compliance Checklists
+  const complianceData = [
+    {
+      type: 'Fall Protection',
+      title: 'Fall Protection — Daily Pre-Task Inspection',
+      project: 'Harbour Reach Condos – Phase 2',
+      frequency: 'Daily',
+      status: 'complete',
+      lastCompleted: '2026-03-16',
+      inspector: 'Jake Sullivan',
+      items: [
+        { item: 'All floor openings guarded or covered', required: true },
+        { item: 'Guardrails installed at perimeter openings > 300mm', required: true },
+        { item: 'Workers above 3m wearing harnesses tied off to anchor', required: true },
+        { item: 'Harnesses inspected and in good condition', required: true },
+        { item: 'Rescue plan posted and crew briefed', required: true },
+        { item: 'Exclusion zones marked below elevated work', required: true },
+      ],
+      completedItems: [true, true, true, true, true, true],
+    },
+    {
+      type: 'Electrical Lockout/Tagout',
+      title: 'Electrical LOTO — Before Any Electrical Work',
+      project: 'Harbour Reach Condos – Phase 2',
+      frequency: 'Per Task',
+      status: 'pending',
+      lastCompleted: '2026-03-15',
+      inspector: 'Raymond Okonkwo',
+      items: [
+        { item: 'Identify all energy sources for the equipment', required: true },
+        { item: 'Notify affected employees', required: true },
+        { item: 'Shut down equipment using normal stopping procedure', required: true },
+        { item: 'Isolate energy source (disconnect switch, etc.)', required: true },
+        { item: 'Apply lockout device and personal lock', required: true },
+        { item: 'Release or restrain stored energy', required: true },
+        { item: 'Verify isolation by attempting to start equipment', required: true },
+      ],
+      completedItems: [],
+    },
+    {
+      type: 'Scaffolding',
+      title: 'Scaffolding Inspection — Weekly',
+      project: 'Harbour Reach Condos – Phase 2',
+      frequency: 'Weekly',
+      status: 'complete',
+      lastCompleted: '2026-03-14',
+      inspector: 'Marc Tremblay',
+      items: [
+        { item: 'Scaffold erected on firm footing / base plates installed', required: true },
+        { item: 'All frames plumb and level', required: true },
+        { item: 'Cross braces properly engaged', required: true },
+        { item: 'Planks free of defects, secured, and overlapping properly', required: true },
+        { item: 'Guardrails and toe boards in place at all open edges', required: true },
+        { item: 'Safe access provided — ladders or stair towers', required: true },
+        { item: 'Maximum load capacity posted', required: true },
+        { item: 'No debris or tools left on platform', required: true },
+      ],
+      completedItems: [true, true, true, true, true, true, true, true],
+    },
+    {
+      type: 'Equipment Inspection',
+      title: 'Tower Crane Pre-Operation Checklist',
+      project: 'Harbour Reach Condos – Phase 2',
+      frequency: 'Daily',
+      status: 'pending',
+      lastCompleted: '2026-03-16',
+      inspector: 'Cooper Crane Services',
+      items: [
+        { item: 'Operator certified and licence valid', required: true },
+        { item: 'Visual inspection of boom, jib, and mast', required: true },
+        { item: 'Wire rope condition — no kinks, breaks, or corrosion', required: true },
+        { item: 'All limit switches tested and functioning', required: true },
+        { item: 'Anti-collision system active', required: true },
+        { item: 'Load chart posted in cab', required: true },
+        { item: 'Communication between operator and rigger confirmed', required: true },
+        { item: 'Swing radius barricaded at ground level', required: true },
+      ],
+      completedItems: [],
+    },
+  ];
+  complianceData.forEach(c => Compliance.add(c));
+
   // Mark seeded
-  localStorage.setItem(PREFIX + 'seeded_v2', '1');
-  console.log('✅ Site Command DB v2 seeded with demo data (incl. RFIs, Punch List, Timecards, Documents, Schedule)');
+  localStorage.setItem(PREFIX + 'seeded_v3', '1');
+  console.log('✅ Site Command DB v3 seeded (added OKRs, Vendors, POs, Compliance on top of v2 data)');
 }
 
 // ── Export DB stats ───────────────────────────────
 function getStats() {
   return {
-    reports:      Reports.getAll().length,
-    changeOrders: ChangeOrders.getAll().length,
-    safetyLogs:   SafetyLogs.getAll().length,
-    photos:       Photos.getAll().length,
-    rfis:         RFIs.getAll().length,
-    punchlist:    PunchList.getAll().length,
-    timecards:    Timecards.getAll().length,
-    documents:    Documents.getAll().length,
-    schedule:     Schedule.getAll().length,
-    storageUsed:  Object.keys(localStorage)
-                    .filter(k => k.startsWith(PREFIX))
-                    .reduce((sum, k) => sum + (localStorage.getItem(k) || '').length, 0),
+    reports:        Reports.getAll().length,
+    changeOrders:   ChangeOrders.getAll().length,
+    safetyLogs:     SafetyLogs.getAll().length,
+    photos:         Photos.getAll().length,
+    rfis:           RFIs.getAll().length,
+    punchlist:      PunchList.getAll().length,
+    timecards:      Timecards.getAll().length,
+    documents:      Documents.getAll().length,
+    schedule:       Schedule.getAll().length,
+    okrs:           OKRs.getAll().length,
+    vendors:        Vendors.getAll().length,
+    purchaseOrders: PurchaseOrders.getAll().length,
+    compliance:     Compliance.getAll().length,
+    storageUsed:    Object.keys(localStorage)
+                      .filter(k => k.startsWith(PREFIX))
+                      .reduce((sum, k) => sum + (localStorage.getItem(k) || '').length, 0),
   };
 }
 
@@ -395,7 +609,11 @@ function exportBackup() {
       punchlist:    PunchList.getAll(),
       timecards:    Timecards.getAll(),
       documents:    Documents.getAll(),
-      schedule:     Schedule.getAll(),
+      schedule:       Schedule.getAll(),
+      okrs:           OKRs.getAll(),
+      vendors:        Vendors.getAll(),
+      purchaseOrders: PurchaseOrders.getAll(),
+      compliance:     Compliance.getAll(),
     },
   };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
