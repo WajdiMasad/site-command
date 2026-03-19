@@ -449,9 +449,9 @@ textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
   color: var(--text-muted); margin-bottom: 10px;
 }
 .stat-value {
-  font-family: 'Syne', sans-serif;
-  font-size: 2.2rem; font-weight: 800;
-  letter-spacing: -0.04em; line-height: 1;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 2.2rem; font-weight: 600;
+  letter-spacing: -0.02em; line-height: 1;
   margin-bottom: 6px;
 }
 .stat-value.orange { color: var(--brand); }
