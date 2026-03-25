@@ -1,8 +1,6 @@
 /* ================================================
-   SITE COMMAND — App Logic v3
-   Fully wired to localStorage DB v2.
-   Navigation, rendering, all interactions.
-   New: RFIs, Punch List, Timecards, Documents, Gantt Schedule
+   SITE COMMAND — App Logic v4
+   Top-nav navigation with sub-tabs.
    ================================================ */
 
 // ── State ──────────────────────────────────────
@@ -10,31 +8,108 @@ const state = {
   currentPage: 'dashboard',
 };
 
-// ── Init ────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+// ── Section & Sub-Tab Mapping ───────────────────
+const SECTIONS = {
+  dashboard: { label: 'Dashboard', pages: ['dashboard'] },
+  field: {
+    label: 'Field',
+    pages: [
+      { id: 'daily-report', label: 'Daily Reports' },
+      { id: 'schedule',     label: 'Schedule' },
+      { id: 'photos',       label: 'Photo Log' },
+      { id: 'crew',         label: 'Crew & Subs' },
+      { id: 'timecards',    label: 'Timecards' },
+      { id: 'safety',       label: 'Safety' },
+    ]
+  },
+  admin: {
+    label: 'Admin',
+    pages: [
+      { id: 'rfis',          label: 'RFIs' },
+      { id: 'punchlist',     label: 'Punch List' },
+      { id: 'change-orders', label: 'Change Orders' },
+      { id: 'budget',        label: 'Budget' },
+      { id: 'documents',     label: 'Documents' },
+      { id: 'procurement',   label: 'Procurement' },
+    ]
+  },
+  intelligence: {
+    label: 'Intelligence',
+    pages: [
+      { id: 'pmo',        label: 'PMO Dashboard' },
+      { id: 'risk',       label: 'Risk Radar' },
+      { id: 'compliance', label: 'Compliance' },
+    ]
+  },
+};
+
+// Reverse lookup: page id -> section
+const PAGE_TO_SECTION = {};
+Object.entries(SECTIONS).forEach(([sec, cfg]) => {
+  if (Array.isArray(cfg.pages)) {
+    cfg.pages.forEach(p => {
+      const id = typeof p === 'string' ? p : p.id;
+      PAGE_TO_SECTION[id] = sec;
+    });
+  }
+});
+
+function switchSection(section) {
+  // Highlight top nav
+  document.querySelectorAll('.top-nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.section === section);
+  });
+
+  const cfg = SECTIONS[section];
+  const subNav = document.getElementById('subNavbar');
+  if (!subNav) return;
+
+  if (section === 'dashboard') {
+    subNav.innerHTML = '';
+    subNav.style.display = 'none';
+    navigate('dashboard');
+    return;
+  }
+
+  subNav.style.display = 'flex';
+  subNav.innerHTML = cfg.pages.map(p => {
+    const pg = typeof p === 'string' ? p : p.id;
+    const label = typeof p === 'string' ? p : p.label;
+    return `<button class="sub-nav-item" data-page="${pg}" onclick="navigate('${pg}')">${label}</button>`;
+  }).join('');
+
+  // Navigate to first page in section
+  const firstPage = typeof cfg.pages[0] === 'string' ? cfg.pages[0] : cfg.pages[0].id;
+  navigate(firstPage);
+}
+
+// -- Init --
+document.addEventListener('DOMContentLoaded', function() {
+  applyTheme();
   seedIfEmpty();
-  navigate('dashboard');
+  switchSection('dashboard');
   renderPhotoGrid();
   renderScheduleBoard();
   renderSpendChart();
   setTimeout(animateBars, 200);
   updateDashboardStats();
-  console.log('✅ Site Command v3 loaded', getStats());
+  console.log('Site Command v4 loaded');
 });
 
-// ── Navigation ──────────────────────────────────
+// -- Navigation --
 function navigate(page) {
-  document.querySelectorAll('.nav-item').forEach(el => {
+  var section = PAGE_TO_SECTION[page] || 'dashboard';
+  document.querySelectorAll('.top-nav-item').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.section === section);
+  });
+  document.querySelectorAll('.sub-nav-item').forEach(function(el) {
     el.classList.toggle('active', el.dataset.page === page);
   });
-  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
-  const target = document.getElementById('page-' + page);
+  document.querySelectorAll('.page').forEach(function(el) { el.classList.remove('active'); });
+  var target = document.getElementById('page-' + page);
   if (target) { target.classList.add('active'); }
   state.currentPage = page;
   updateTopbar(page);
-  closeSidebar();
-
-  // Refresh page-specific content from DB
   if (page === 'daily-report')  renderReportsTable();
   if (page === 'change-orders') renderChangeOrders();
   if (page === 'safety')        renderSafetyLog();
@@ -52,7 +127,7 @@ function navigate(page) {
 }
 
 function updateTopbar(page) {
-  const titles = {
+  var titles = {
     'dashboard':     ['Dashboard', 'Monday, March 16, 2026 — Harbour Reach Condos'],
     'daily-report':  ['Daily Reports', 'All projects — site documentation'],
     'photos':        ['Photo Log', 'Harbour Reach Condos – Phase 2'],
@@ -73,15 +148,15 @@ function updateTopbar(page) {
   const actionLabels = {
     'dashboard':     '+ New Report',
     'daily-report':  '+ New Report',
-    'photos':        '📤 Upload Photos',
+    'photos':        ' Upload Photos',
     'crew':          '+ Add Trade',
     'safety':        '+ Log Entry',
     'change-orders': '+ Change Order',
-    'budget':        '📤 Export',
+    'budget':        ' Export',
     'rfis':          '+ New RFI',
     'punchlist':     '+ Punch Item',
     'timecards':     '+ Clock In',
-    'documents':     '📤 Upload',
+    'documents':     ' Upload',
     'schedule':      '+ Add Task',
     'pmo':           '📄 Generate Summary',
     'risk':          '🔄 Rescan',
@@ -158,16 +233,18 @@ function updateDashboardStats() {
   const reports = Reports.getAll();
   const cos     = ChangeOrders.getAll();
   const pending = cos.filter(c => c.status === 'pending').length;
-
-  const rBadge = document.querySelector('[data-page="daily-report"] .nav-badge');
-  if (rBadge) rBadge.textContent = reports.length;
-  const cBadge = document.querySelector('[data-page="change-orders"] .nav-badge');
-  if (cBadge) cBadge.textContent = pending;
-
-  // RFI badge
+  const openSafety = SafetyLogs.getAll().filter(s => s.type !== 'Toolbox Talk' && !s.resolved).length;
   const openRFIs = RFIs.getAll().filter(r => r.status === 'open').length;
-  const rfiBadge = document.querySelector('[data-page="rfis"] .nav-badge');
-  if (rfiBadge) rfiBadge.textContent = openRFIs;
+
+  const bReports = document.getElementById('badge-reports');
+  const bCOs = document.getElementById('badge-cos');
+  const bSafety = document.getElementById('badge-safety');
+  const bRFIs = document.getElementById('badge-rfis');
+
+  if (bReports) bReports.textContent = reports.length;
+  if (bCOs) bCOs.textContent = pending;
+  if (bSafety) bSafety.textContent = openSafety;
+  if (bRFIs) bRFIs.textContent = openRFIs;
 }
 
 // ══════════════════════════════════════════════════
@@ -179,7 +256,7 @@ function renderReportsTable() {
   const reports = Reports.getAll();
 
   if (!reports.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No reports yet</div><div class="empty-desc">Submit your first daily report above.</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon"></div><div class="empty-title">No reports yet</div><div class="empty-desc">Submit your first daily report above.</div></div></td></tr>`;
     return;
   }
 
@@ -221,7 +298,7 @@ function openReportView(id) {
     ${section('Issues & Delays', r.issues)}
     ${section('Visitors On-Site', r.visitors)}
     <div style="display:flex;align-items:center;gap:8px;background:var(--brand-dim);border:1px solid var(--brand-border);border-radius:var(--r);padding:10px 14px;margin-top:4px;">
-      <span>📸</span>
+      <span></span>
       <span style="font-size:0.84rem;font-weight:600;">${r.photos || 0} photos attached</span>
       <button class="btn btn-sm btn-orange" style="margin-left:auto;" onclick="exportReportPDF(Reports.getById('${r.id}'))">📄 Export PDF</button>
     </div>`;
@@ -259,7 +336,7 @@ function submitReport() {
   closeModal('modalReport');
   f.reset();
   f.querySelector('[name=date]').value = '2026-03-16';
-  showToast('✅ Daily report saved to database', 'success');
+  showToast(' Daily report saved to database', 'success');
   if (state.currentPage === 'daily-report') renderReportsTable();
   updateDashboardStats();
 }
@@ -294,9 +371,9 @@ function renderChangeOrders() {
   };
 
   pendingEl.innerHTML = pending.length ? pending.map(c => renderCO(c, true)).join('') :
-    `<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No pending change orders</div></div>`;
+    `<div class="empty-state"><div class="empty-icon"></div><div class="empty-title">No pending change orders</div></div>`;
   approvedEl.innerHTML = approved.length ? approved.map(c => renderCO(c, false)).join('') :
-    `<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-title">No approved COs yet</div></div>`;
+    `<div class="empty-state"><div class="empty-icon"></div><div class="empty-title">No approved COs yet</div></div>`;
 
   const all2 = ChangeOrders.getAll();
   const el = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
@@ -327,7 +404,7 @@ function submitCO() {
   closeModal('modalCO'); f.reset();
   f.querySelector('[name=coDate]').value = '2026-03-16';
   renderChangeOrders(); updateDashboardStats();
-  showToast(`📝 ${num} submitted for approval`, 'success');
+  showToast(` ${num} submitted for approval`, 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -346,27 +423,27 @@ function renderSafetyLog() {
   if (daysClean) daysClean.textContent = open.length === 0 ? '48' : '0';
 
   openEl.innerHTML = open.length ? open.map(s => `
-    <div class="safety-item"><div class="safety-icon">⚠️</div><div class="safety-content">
+    <div class="safety-item"><div class="safety-icon"></div><div class="safety-content">
       <div class="safety-title">${s.title}</div><div class="safety-desc">${s.desc || ''}</div>
       <div class="safety-footer"><span class="badge badge-red">${s.type}</span><span class="text-muted" style="font-size:0.72rem;">Reported by ${s.reportedBy||'—'} — ${s.date||''}</span><button class="btn btn-sm btn-success" onclick="doResolveSafety('${s.id}')">Mark Resolved</button></div>
     </div></div>`).join('') :
-    `<div class="empty-state" style="padding:24px;"><div class="empty-icon">✅</div><div class="empty-title">No open items</div><div class="empty-desc">All clear!</div></div>`;
+    `<div class="empty-state" style="padding:24px;"><div class="empty-icon"></div><div class="empty-title">No open items</div><div class="empty-desc">All clear!</div></div>`;
 
   const openBadge = document.getElementById('safetyOpenBadge');
   if (openBadge) { openBadge.textContent = open.length ? `${open.length} Open` : 'All Clear'; openBadge.className = open.length ? 'badge badge-red' : 'badge badge-green'; }
 
   talksEl.innerHTML = talks.length ? talks.map(s => `
-    <div class="safety-item"><div class="safety-icon">✅</div><div class="safety-content">
+    <div class="safety-item"><div class="safety-icon"></div><div class="safety-content">
       <div class="safety-title">${s.title}</div><div class="safety-desc">${s.desc||''}</div>
       <div class="safety-footer">${s.attendees ? `<span class="badge badge-green">${s.attendees} attendees</span>` : ''}<span class="text-muted" style="font-size:0.72rem;">${s.date||''}</span></div>
     </div></div>`).join('') :
-    `<div class="empty-state" style="padding:24px;"><div class="empty-icon">📋</div><div class="empty-title">No toolbox talks yet</div></div>`;
+    `<div class="empty-state" style="padding:24px;"><div class="empty-icon"></div><div class="empty-title">No toolbox talks yet</div></div>`;
 
   const sBadge = document.querySelector('[data-page="safety"] .nav-badge');
   if (sBadge) { sBadge.textContent = open.length; sBadge.style.background = open.length ? 'var(--red)' : 'var(--green)'; }
 }
 
-function doResolveSafety(id) { SafetyLogs.resolve(id); renderSafetyLog(); showToast('✅ Safety item marked resolved', 'success'); }
+function doResolveSafety(id) { SafetyLogs.resolve(id); renderSafetyLog(); showToast(' Safety item marked resolved', 'success'); }
 
 function submitSafety() {
   const f = document.getElementById('formSafety');
@@ -381,7 +458,7 @@ function submitSafety() {
   };
   if (!data.title) { showToast('Please enter a title', 'error'); return; }
   SafetyLogs.add(data); closeModal('modalSafety'); f.reset();
-  renderSafetyLog(); showToast('⚠️ Safety entry saved to database', 'success');
+  renderSafetyLog(); showToast(' Safety entry saved to database', 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -398,7 +475,7 @@ function renderRFIs() {
   el('rfiTotalCount', all.length);
 
   if (!all.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📨</div><div class="empty-title">No RFIs yet</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon"></div><div class="empty-title">No RFIs yet</div></div></td></tr>`;
     return;
   }
 
@@ -446,7 +523,7 @@ function viewRFI(id) {
 function markRFIAnswered(id) {
   RFIs.respond(id, 'Acknowledged — response received verbally. Will be documented in next addendum.');
   closeModal('modalRFIView'); renderRFIs(); updateDashboardStats();
-  showToast('✅ RFI marked as answered', 'success');
+  showToast(' RFI marked as answered', 'success');
 }
 
 function submitRFI() {
@@ -466,7 +543,7 @@ function submitRFI() {
   RFIs.add(data); closeModal('modalRFI'); f.reset();
   f.querySelector('[name=rfiDue]').value = '2026-03-20';
   renderRFIs(); updateDashboardStats();
-  showToast(`📨 ${num} submitted`, 'success');
+  showToast(` ${num} submitted`, 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -517,11 +594,11 @@ function renderPunchList() {
     ${open.map(renderItem).join('')}
     ${done.length ? `<div class="section-header" style="margin-top:20px;margin-bottom:12px;"><div class="section-title" style="font-size:0.9rem;"><span class="badge badge-green">${done.length} Completed</span></div></div>` : ''}
     ${done.map(renderItem).join('')}
-    ${!all.length ? '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No punch list items yet</div></div>' : ''}
+    ${!all.length ? '<div class="empty-state"><div class="empty-icon"></div><div class="empty-title">No punch list items yet</div></div>' : ''}
   `;
 }
 
-function completePunch(id) { PunchList.complete(id); renderPunchList(); showToast('✅ Punch item marked complete', 'success'); }
+function completePunch(id) { PunchList.complete(id); renderPunchList(); showToast(' Punch item marked complete', 'success'); }
 function reopenPunch(id) { PunchList.reopen(id); renderPunchList(); showToast('↩ Punch item reopened', 'info'); }
 
 function submitPunch() {
@@ -539,7 +616,7 @@ function submitPunch() {
   if (!data.title) { showToast('Please enter a title', 'error'); return; }
   PunchList.add(data); closeModal('modalPunch'); f.reset();
   f.querySelector('[name=punchDue]').value = '2026-03-22';
-  renderPunchList(); showToast('✅ Punch list item added', 'success');
+  renderPunchList(); showToast(' Punch list item added', 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -573,7 +650,7 @@ function renderTimecards() {
       <span class="font-mono" style="font-size:0.75rem;color:var(--text-muted);">${t.clockIn} – ${t.clockOut}</span>
       <span class="crew-hours">${t.hours}h${t.overtime ? ` <span style="color:var(--yellow);font-size:0.7rem;">(+${t.overtime}OT)</span>` : ''}</span>
     </div>`).join('') :
-    `<div class="empty-state" style="padding:24px;"><div class="empty-icon">⏱️</div><div class="empty-title">No timecards for today</div></div>`;
+    `<div class="empty-state" style="padding:24px;"><div class="empty-icon"></div><div class="empty-title">No timecards for today</div></div>`;
 
   // Cost code breakdown
   if (costEl) {
@@ -589,7 +666,7 @@ function renderTimecards() {
         <div class="budget-row"><span class="budget-label" style="font-size:0.8rem;">${code}</span><div class="budget-amounts"><span class="amount-spent">${data.hours}h</span><span class="amount-total">${data.workers} worker${data.workers>1?'s':''}</span></div></div>
         <div class="budget-fill-bar"><div class="budget-fill fill-safe" style="width:${pct}%"></div></div>
       </div>`;
-    }).join('') : `<div class="empty-state" style="padding:24px;"><div class="empty-icon">💰</div></div>`;
+    }).join('') : `<div class="empty-state" style="padding:24px;"><div class="empty-icon"></div></div>`;
   }
 }
 
@@ -616,7 +693,7 @@ function submitTimecard() {
   f.querySelector('[name=tcDate]').value = '2026-03-16';
   f.querySelector('[name=tcIn]').value = '07:00';
   f.querySelector('[name=tcOut]').value = '15:30';
-  renderTimecards(); showToast(`⏱️ ${data.worker} clocked — ${hours}h`, 'success');
+  renderTimecards(); showToast(` ${data.worker} clocked — ${hours}h`, 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -646,7 +723,7 @@ function renderDocuments() {
     <td style="font-size:0.78rem;">${d.uploadedBy||'—'}</td>
     <td class="font-mono" style="font-size:0.77rem;">${d.date||'—'}</td>
   </tr>`).join('') :
-  `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📁</div><div class="empty-title">No documents found</div></div></td></tr>`;
+  `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon"></div><div class="empty-title">No documents found</div></div></td></tr>`;
 }
 
 // ══════════════════════════════════════════════════
@@ -656,7 +733,7 @@ function renderGantt() {
   const container = document.getElementById('ganttChart');
   if (!container) return;
   const tasks = Schedule.getAll().sort((a,b) => new Date(a.startDate) - new Date(b.startDate));
-  if (!tasks.length) { container.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No schedule items</div></div>'; return; }
+  if (!tasks.length) { container.innerHTML = '<div class="empty-state"><div class="empty-icon"></div><div class="empty-title">No schedule items</div></div>'; return; }
 
   const projectStart = new Date('2026-01-06');
   const projectEnd = new Date('2026-08-21');
@@ -740,7 +817,7 @@ function renderPhotoGrid() {
   const saved = Photos.getAll();
   const savedHTML = saved.map(p => `<div class="photo-item" onclick="showToast('Photo: ${p.name}', 'info')"><img src="${p.dataUrl}" alt="${p.name}" /><div class="photo-tag">${p.name}</div></div>`).join('');
   if (grid1) {
-    grid1.innerHTML = savedHTML + DEMO_PHOTOS_1.map(p => `<div class="photo-item" onclick="showToast('Viewing: ${p.label}', 'info')"><div class="photo-placeholder" style="background:${p.color};"><span class="ph-icon">🏗️</span><span style="font-size:0.7rem;text-align:center;padding:0 8px;">${p.label}</span></div><div class="photo-tag">${p.label}</div></div>`).join('');
+    grid1.innerHTML = savedHTML + DEMO_PHOTOS_1.map(p => `<div class="photo-item" onclick="showToast('Viewing: ${p.label}', 'info')"><div class="photo-placeholder" style="background:${p.color};"><span class="ph-icon"></span><span style="font-size:0.7rem;text-align:center;padding:0 8px;">${p.label}</span></div><div class="photo-tag">${p.label}</div></div>`).join('');
   }
   if (grid2) {
     grid2.innerHTML = DEMO_PHOTOS_2.map(p => `<div class="photo-item" onclick="showToast('Viewing: ${p.label}', 'info')"><div class="photo-placeholder" style="background:${p.color};"><span class="ph-icon">🔧</span><span style="font-size:0.7rem;text-align:center;padding:0 8px;">${p.label}</span></div><div class="photo-tag">${p.label}</div></div>`).join('');
@@ -755,7 +832,7 @@ function handlePhotoUpload(event) {
     reader.onload = e => {
       Photos.add({ name: file.name, dataUrl: e.target.result, project: 'Harbour Reach Condos – Phase 2', uploadedAt: new Date().toISOString() });
       done++;
-      if (done === files.length) { renderPhotoGrid(); showToast(`📸 ${files.length} photo${files.length > 1 ? 's' : ''} saved to database`, 'success'); }
+      if (done === files.length) { renderPhotoGrid(); showToast(` ${files.length} photo${files.length > 1 ? 's' : ''} saved to database`, 'success'); }
     };
     reader.readAsDataURL(file);
   });
@@ -841,7 +918,7 @@ document.addEventListener('click', e => {
 
 // ── Toast ────────────────────────────────────────
 function showToast(message, type = 'info') {
-  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  const icons = { success: '', error: '❌', info: 'ℹ️' };
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
@@ -948,8 +1025,8 @@ function runRiskScan() {
 
   const levelConfig = {
     high:   { icon: '🚨', color: 'var(--red)', bg: '#fff5f5', border: '#fecaca', label: 'HIGH RISK' },
-    medium: { icon: '⚠️', color: '#d97706', bg: '#fffbeb', border: '#fde68a', label: 'MEDIUM RISK' },
-    low:    { icon: '✅', color: 'var(--green)', bg: '#f0fdf4', border: '#bbf7d0', label: 'LOW / INFO' },
+    medium: { icon: '', color: '#d97706', bg: '#fffbeb', border: '#fde68a', label: 'MEDIUM RISK' },
+    low:    { icon: '', color: 'var(--green)', bg: '#f0fdf4', border: '#bbf7d0', label: 'LOW / INFO' },
   };
 
   container.innerHTML = [...high, ...med, ...low].map(f => {
@@ -992,7 +1069,7 @@ function renderPortfolioHeatmap() {
 
   const healthConfig = {
     green:  { icon: '🟢', label: 'On Track',  bg: '#f0fdf4', border: '#86efac' },
-    red:    { icon: '🔴', label: 'Delayed',   bg: '#fff5f5', border: '#fca5a5' },
+    red:    { icon: '', label: 'Delayed',   bg: '#fff5f5', border: '#fca5a5' },
     yellow: { icon: '🟡', label: 'Pre-Start', bg: '#fffbeb', border: '#fde68a' },
   };
 
@@ -1023,7 +1100,7 @@ function renderOKRs() {
   if (!container) return;
   const okrs = OKRs.getAll();
 
-  if (!okrs.length) { container.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">No OKRs yet</div></div>'; return; }
+  if (!okrs.length) { container.innerHTML = '<div class="empty-state"><div class="empty-icon"></div><div class="empty-title">No OKRs yet</div></div>'; return; }
 
   container.innerHTML = okrs.map(o => {
     const avgProgress = Math.round(o.keyResults.reduce((s,k)=>s+k.progress,0)/o.keyResults.length);
@@ -1116,7 +1193,7 @@ Generated by Site Command v3 — PMBOK 8th Edition Intelligence Engine.`;
 
 function copyExecSummary() {
   const text = document.getElementById('execSummaryText')?.textContent;
-  if (text) { navigator.clipboard.writeText(text).then(()=>showToast('📋 Copied to clipboard!','success')).catch(()=>showToast('Copy failed','error')); }
+  if (text) { navigator.clipboard.writeText(text).then(()=>showToast(' Copied to clipboard!','success')).catch(()=>showToast('Copy failed','error')); }
 }
 
 // ══════════════════════════════════════════════════
@@ -1138,11 +1215,11 @@ function renderCompliance() {
   const container = document.getElementById('complianceCards');
   if (!container) return;
 
-  const typeIcons = { 'Fall Protection': '🪝', 'Electrical Lockout/Tagout': '⚡', 'Scaffolding': '🏗️', 'Equipment Inspection': '🏗️' };
+  const typeIcons = { 'Fall Protection': '🪝', 'Electrical Lockout/Tagout': '', 'Scaffolding': '', 'Equipment Inspection': '' };
   const freqBadge = { 'Daily': 'badge-orange', 'Weekly': 'badge-blue', 'Per Task': 'badge-yellow' };
 
   container.innerHTML = all.map(c => {
-    const icon = typeIcons[c.type] || '✅';
+    const icon = typeIcons[c.type] || '';
     const isComplete = c.status === 'complete';
     const itemsDone = (c.completedItems||[]).filter(Boolean).length;
     const total = (c.items||[]).length;
@@ -1205,7 +1282,7 @@ function completeChecklist(id) {
   const allTrue = new Array(c.items.length).fill(true);
   Compliance.complete(id, allTrue);
   renderCompliance();
-  showToast('✅ Checklist marked complete!', 'success');
+  showToast(' Checklist marked complete!', 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -1266,9 +1343,9 @@ function renderProcurement() {
   }
 }
 
-function doPOReceive(id) { PurchaseOrders.receive(id); renderProcurement(); showToast('📦 PO marked as Received', 'success'); }
+function doPOReceive(id) { PurchaseOrders.receive(id); renderProcurement(); showToast(' PO marked as Received', 'success'); }
 function doPOInvoice(id) { PurchaseOrders.invoice(id); renderProcurement(); showToast('🧾 PO marked as Invoiced', 'success'); }
-function doPOPay(id)     { PurchaseOrders.pay(id);     renderProcurement(); showToast('✅ PO marked as Paid',     'success'); }
+function doPOPay(id)     { PurchaseOrders.pay(id);     renderProcurement(); showToast(' PO marked as Paid',     'success'); }
 
 function submitPO() {
   const f = document.getElementById('formPO');
@@ -1287,7 +1364,7 @@ function submitPO() {
   closeModal('modalPO'); f.reset();
   f.querySelector('[name=poDue]').value = '2026-04-30';
   renderProcurement();
-  showToast(`📦 ${data.poNumber} issued to ${data.vendor}`, 'success');
+  showToast(` ${data.poNumber} issued to ${data.vendor}`, 'success');
 }
 
 // ══════════════════════════════════════════════════
@@ -1320,7 +1397,7 @@ function generateInsights() {
     insights.push({ level: 'high', icon: '🚨', text: f.message, action: f.action, signal: f.signal });
   });
   flags.filter(f=>f.level==='medium').forEach(f => {
-    insights.push({ level: 'medium', icon: '⚠️', text: f.message, action: f.action, signal: f.signal });
+    insights.push({ level: 'medium', icon: '', text: f.message, action: f.action, signal: f.signal });
   });
 
   // Procurement insights
@@ -1335,14 +1412,14 @@ function generateInsights() {
   // Compliance insight
   const pendingComp = compliance.filter(c=>c.status==='pending').length;
   if (pendingComp > 0) {
-    insights.push({ level: 'medium', icon: '🦺', signal: 'Compliance Gap',
+    insights.push({ level: 'medium', icon: '', signal: 'Compliance Gap',
       text: `${pendingComp} compliance checklist(s) are pending completion. OSHA requires daily fall protection and equipment inspections.`,
       action: 'Complete pending checklists before tomorrow\'s morning crew arrival.',
     });
   }
 
   // Positive signal
-  insights.push({ level: 'low', icon: '✅', signal: 'Budget Healthy',
+  insights.push({ level: 'low', icon: '', signal: 'Budget Healthy',
     text: 'Overall project spend is on track. Labour ($612K/$840K) and materials ($698K/$1.02M) are both within 5% of expected burn rate.',
     action: 'Continue weekly budget reviews.',
   });
@@ -1353,7 +1430,7 @@ function generateInsights() {
 function loadAIInsights() {
   const container = document.getElementById('aiInsightsList');
   if (!container) return;
-  container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:16px;">🤖 Scanning all project data…</div>';
+  container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:16px;"> Scanning all project data…</div>';
 
   setTimeout(() => {
     const insights = generateInsights();
@@ -1376,6 +1453,7 @@ function loadAIInsights() {
 // INIT — on load, run risk scan to update badges
 // ══════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
+  applyTheme();
   // Run a silent risk scan on load to populate the sidebar badge
   setTimeout(() => {
     const flags = computeRiskScore();
@@ -1387,3 +1465,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 500);
 });
+
+
+
+window.applyTheme = function() {
+  var isDark = localStorage.getItem('siteCommandDark') === 'true';
+  if (isDark) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  var icon = document.getElementById('darkModeIcon');
+  if (icon) icon.innerHTML = isDark ? '&#127769;' : '&#9728;&#65039;';
+};
+
+window.toggleDarkMode = function() {
+  var isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('siteCommandDark', isDark);
+  var icon = document.getElementById('darkModeIcon');
+  if (icon) icon.innerHTML = isDark ? '&#127769;' : '&#9728;&#65039;';
+};
